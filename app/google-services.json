@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "674679920333",
+    "project_id": "data-382711",
+    "storage_bucket": "data-382711.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:674679920333:android:9e8b243fb3a5dcbc38fb84",
+        "android_client_info": {
+          "package_name": "com.justpoint.hiddendanger"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "674679920333-cfco7sgirhjgnvutrn6v8e4depo0sd5a.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBCfIBtx1DFdgp804V4gdayuzkNAXuCJtc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "674679920333-cfco7sgirhjgnvutrn6v8e4depo0sd5a.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
