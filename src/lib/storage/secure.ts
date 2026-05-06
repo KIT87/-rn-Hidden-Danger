@@ -1,19 +1,34 @@
+import { Platform } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 
 const AUTH_TOKEN_KEY = 'auth_token';
 const AUTH_EXPIRES_KEY = 'auth_expires_at';
+const AUTH_NICKNAME_KEY = 'auth_nickname';
+
+const webStore = {
+  getItemAsync: (key: string) => Promise.resolve(localStorage.getItem(key)),
+  setItemAsync: (key: string, value: string) => { localStorage.setItem(key, value); return Promise.resolve(); },
+  deleteItemAsync: (key: string) => { localStorage.removeItem(key); return Promise.resolve(); },
+};
+
+const store = Platform.OS === 'web' ? webStore : SecureStore;
 
 export const storage = {
-  getToken: () => SecureStore.getItemAsync(AUTH_TOKEN_KEY),
-  setToken: (token: string) => SecureStore.setItemAsync(AUTH_TOKEN_KEY, token),
-  deleteToken: () => SecureStore.deleteItemAsync(AUTH_TOKEN_KEY),
+  getToken: () => store.getItemAsync(AUTH_TOKEN_KEY),
+  setToken: (token: string) => store.setItemAsync(AUTH_TOKEN_KEY, token),
+  deleteToken: () => store.deleteItemAsync(AUTH_TOKEN_KEY),
 
-  getExpiresAt: () => SecureStore.getItemAsync(AUTH_EXPIRES_KEY),
-  setExpiresAt: (expiresAt: string) => SecureStore.setItemAsync(AUTH_EXPIRES_KEY, expiresAt),
-  deleteExpiresAt: () => SecureStore.deleteItemAsync(AUTH_EXPIRES_KEY),
+  getExpiresAt: () => store.getItemAsync(AUTH_EXPIRES_KEY),
+  setExpiresAt: (expiresAt: string) => store.setItemAsync(AUTH_EXPIRES_KEY, expiresAt),
+  deleteExpiresAt: () => store.deleteItemAsync(AUTH_EXPIRES_KEY),
+
+  getNickname: () => store.getItemAsync(AUTH_NICKNAME_KEY),
+  setNickname: (nickname: string) => store.setItemAsync(AUTH_NICKNAME_KEY, nickname),
+  deleteNickname: () => store.deleteItemAsync(AUTH_NICKNAME_KEY),
 
   clear: async () => {
-    await SecureStore.deleteItemAsync(AUTH_TOKEN_KEY);
-    await SecureStore.deleteItemAsync(AUTH_EXPIRES_KEY);
+    await store.deleteItemAsync(AUTH_TOKEN_KEY);
+    await store.deleteItemAsync(AUTH_EXPIRES_KEY);
+    await store.deleteItemAsync(AUTH_NICKNAME_KEY);
   },
 };

@@ -2,6 +2,14 @@ import { storage } from '@/lib/storage/secure';
 
 const BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:8080/api/v1';
 
+let unauthorizedHandler: (() => void) | null = null;
+let handlingUnauthorized = false;
+
+export function setUnauthorizedHandler(handler: () => void) {
+  unauthorizedHandler = handler;
+  handlingUnauthorized = false;
+}
+
 type HttpMethod = 'GET' | 'POST' | 'DELETE';
 
 interface RequestOptions {
@@ -55,6 +63,10 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
   console.log(`[API] ${res.status} ${url}`, text.slice(0, 500));
 
   if (!res.ok) {
+    if (res.status === 401 && !handlingUnauthorized) {
+      handlingUnauthorized = true;
+      unauthorizedHandler?.();
+    }
     let body: Record<string, unknown> = {};
     try { body = JSON.parse(text); } catch { /* raw text */ }
     throw new ApiError(res.status, text || `HTTP ${res.status}`, body);

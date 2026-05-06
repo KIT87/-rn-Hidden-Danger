@@ -8,27 +8,39 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GluestackUIProvider } from '@gluestack-ui/themed';
 import { queryClient } from '@/lib/query/client';
 import { AuthProvider, useAuth } from '@/features/auth/AuthContext';
+import { setUnauthorizedHandler } from '@/api/client';
 
 // gluestack-ui v1 internally uses the deprecated RN SafeAreaView; our code uses react-native-safe-area-context
 LogBox.ignoreLogs(['SafeAreaView has been deprecated']);
 
 function AuthGuard() {
-  const { token, isLoading } = useAuth();
+  const { token, nickname, isLoading, signOut } = useAuth();
   const segments = useSegments();
   const router = useRouter();
+
+  useEffect(() => {
+    setUnauthorizedHandler(async () => {
+      await signOut();
+      queryClient.clear();
+      router.replace('/(auth)/login');
+    });
+  }, [signOut, router]);
 
   useEffect(() => {
     if (isLoading) return;
     const inAuthGroup = segments[0] === '(auth)';
     const inSetup = segments[0] === 'setup';
+
     if (!token && !inAuthGroup) {
       router.replace('/(auth)/login');
-    } else if (token && inAuthGroup) {
-      router.replace('/(tabs)/home');
     } else if (!token && inSetup) {
       router.replace('/(auth)/login');
+    } else if (token && !nickname && !inSetup) {
+      router.replace('/setup');
+    } else if (token && nickname && (inAuthGroup || inSetup)) {
+      router.replace('/(tabs)/home');
     }
-  }, [token, isLoading, segments]);
+  }, [token, nickname, isLoading, segments]);
 
   return null;
 }

@@ -31,8 +31,8 @@ export default function ConfirmScreen() {
       {
         onSuccess: async (data) => {
           if (!data) return;
-          await signIn(data.token, data.expires_at);
-          if (data.is_new_user) {
+          await signIn(data.token, data.expires_at, data.nickname);
+          if (!data.nickname) {
             router.replace('/setup');
           } else {
             router.replace('/(tabs)/scan');
@@ -42,8 +42,11 @@ export default function ConfirmScreen() {
     );
   }
 
+  const submit = handleSubmit(onSubmit);
+
   return (
-    <AppScreen className="justify-center gap-8">
+    <AppScreen scroll keyboardAware className="gap-10 pt-16">
+      {/* Header */}
       <View className="gap-2">
         <AppText variant="title">Check your email</AppText>
         <AppText variant="body" className="text-gray-500">
@@ -54,6 +57,7 @@ export default function ConfirmScreen() {
         </AppText>
       </View>
 
+      {/* Form */}
       <View className="gap-4">
         <Controller
           control={control}
@@ -63,9 +67,14 @@ export default function ConfirmScreen() {
               label="Code"
               placeholder="1234"
               keyboardType="number-pad"
+              returnKeyType="done"
               maxLength={4}
               value={value}
-              onChangeText={onChange}
+              onChangeText={(text) => {
+                onChange(text);
+                if (text.length === 4) submit();
+              }}
+              onSubmitEditing={submit}
               error={errors.code?.message}
             />
           )}
@@ -87,7 +96,7 @@ export default function ConfirmScreen() {
 
         <AppButton
           label="Verify code"
-          onPress={handleSubmit(onSubmit)}
+          onPress={submit}
           loading={isPending}
         />
 

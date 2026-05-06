@@ -6,22 +6,42 @@
     "build": {
         "development": {
             "developmentClient": true,
-            "distribution": "internal"
+            "distribution": "internal",
+            "channel": "development"
         },
         "preview": {
             "distribution": "internal",
-            "ios": { "simulator": false },
-            "android": { "buildType": "apk" }
+            "ios": {
+                "simulator": false
+            },
+            "android": {
+                "buildType": "apk"
+            },
+            "channel": "preview"
         },
         "production": {
-            "ios": { "distribution": "store" },
-            "android": { "buildType": "apk" }
+            "autoIncrement": true,
+            "ios": {
+                "distribution": "store"
+            },
+            "android": {
+                "buildType": "apk"
+            },
+            "env": {
+                "EAS_BUILD_NO_EXPO_GO_WARNING": "true"
+            },
+            "channel": "production"
         }
     },
     "submit": {
         "production": {
-            "ios": { "appleId": "ios@justpoint.com", "ascAppId": "com.justpoint.hiddendanger" },
-            "android": { "serviceAccountKeyPath": "./app/google-services.json" }
+            "ios": {
+                "appleId": "ios@justpoint.com",
+                "ascAppId": "6763313987"
+            },
+            "android": {
+                "serviceAccountKeyPath": "./app/google-services.json"
+            }
         }
     }
 }

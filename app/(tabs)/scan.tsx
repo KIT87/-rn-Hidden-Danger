@@ -7,6 +7,23 @@ import type { BarcodeScanningResult } from 'expo-camera';
 import { AppButton, AppScreen, AppText } from '@/components/ui';
 import { productsApi } from '@/features/products/api';
 
+// Once you have the image: replace <ScanGraphic /> below with:
+// <Image source={require('../../assets/scan-illustration.png')} style={{ width: 260, height: 200 }} resizeMode="contain" />
+function ScanGraphic() {
+  return (
+    <View style={{ width: 220, height: 180, alignItems: 'center', justifyContent: 'center' }}>
+      <View style={[scanGraphicStyles.corner, { top: 0, left: 0, borderTopWidth: 4, borderLeftWidth: 4 }]} />
+      <View style={[scanGraphicStyles.corner, { top: 0, right: 0, borderTopWidth: 4, borderRightWidth: 4 }]} />
+      <View style={[scanGraphicStyles.corner, { bottom: 0, left: 0, borderBottomWidth: 4, borderLeftWidth: 4 }]} />
+      <View style={[scanGraphicStyles.corner, { bottom: 0, right: 0, borderBottomWidth: 4, borderRightWidth: 4 }]} />
+      <Ionicons name="barcode-outline" size={80} color="#d1fae5" />
+    </View>
+  );
+}
+const scanGraphicStyles = StyleSheet.create({
+  corner: { position: 'absolute', width: 36, height: 36, borderColor: '#16a34a' },
+});
+
 const SCAN_SIZE = 260;
 const CORNER = 28;
 const CORNER_W = 4;
@@ -174,24 +191,30 @@ export default function ScanScreen() {
   }
 
   return (
-    <AppScreen className="items-center justify-center gap-6">
-      <View className="w-32 h-32 rounded-full bg-gray-100 items-center justify-center">
-        <Ionicons name="scan" size={56} color="#d1d5db" />
-      </View>
-      <AppText variant="body" className="text-gray-500 text-center px-6">
-        Scan a product barcode to instantly check its safety rating
-      </AppText>
-      <View className="flex-row gap-3">
+    <AppScreen className="items-center justify-center gap-8 px-6">
+      <ScanGraphic />
+
+      <View className="w-full gap-3">
         <AppButton
-          label="Start Scanning"
+          label="Scan Barcode"
           onPress={() => setCameraActive(true)}
-          className="flex-1"
         />
+
+        <View className="flex-row items-center gap-3">
+          <View className="flex-1 h-px bg-gray-100" />
+          <AppText variant="caption" className="text-gray-300">or</AppText>
+          <View className="flex-1 h-px bg-gray-100" />
+        </View>
+
         <AppButton
           label="Search by name"
           variant="secondary"
           onPress={() => router.push('/search/name' as never)}
-          className="flex-1"
+        />
+        <AppButton
+          label="Enter EAN"
+          variant="ghost"
+          onPress={() => router.push('/search/ean' as never)}
         />
       </View>
     </AppScreen>

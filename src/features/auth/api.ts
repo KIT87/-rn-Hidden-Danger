@@ -4,6 +4,7 @@ export interface VerifyCodeResponse {
   token: string;
   expires_at: string;
   is_new_user: boolean;
+  nickname: string | null;
 }
 
 export interface CompleteProfileResponse {

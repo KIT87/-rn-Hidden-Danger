@@ -1,4 +1,4 @@
-import { Image, Pressable, View } from 'react-native';
+import { ActivityIndicator, Image, Pressable, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { AppText } from '@/components/ui';
 import { timeAgo } from '@/utils/time';
@@ -6,10 +6,11 @@ import type { SearchHistoryItem } from '@/features/products/types';
 
 interface SearchHistoryRowProps {
   item: SearchHistoryItem;
+  loading?: boolean;
   onPress?: () => void;
 }
 
-export function SearchHistoryRow({ item, onPress }: SearchHistoryRowProps) {
+export function SearchHistoryRow({ item, loading = false, onPress }: SearchHistoryRowProps) {
   const isEan = item.query_type === 'ean';
 
   return (
@@ -44,9 +45,13 @@ export function SearchHistoryRow({ item, onPress }: SearchHistoryRowProps) {
         />
       ) : null}
 
-      <AppText variant="caption" className="text-gray-400 shrink-0">
-        {timeAgo(item.searched_at)}
-      </AppText>
+      {loading ? (
+        <ActivityIndicator size="small" color="#16a34a" />
+      ) : (
+        <AppText variant="caption" className="text-gray-400 shrink-0">
+          {timeAgo(item.searched_at)}
+        </AppText>
+      )}
     </Pressable>
   );
 }
