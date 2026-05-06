@@ -67,7 +67,7 @@ export default function NameSearchScreen() {
           />
         </View>
 
-        {isPending && <ActivityIndicator color="#16a34a" />}
+        {isPending && <ActivityIndicator color="#7c3aed" />}
 
         {searched && !isPending && (
           <View className="gap-3">

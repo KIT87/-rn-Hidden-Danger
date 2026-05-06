@@ -68,7 +68,7 @@ export default function EanSearchScreen() {
         </View>
 
         {isPending && (
-          <ActivityIndicator color="#16a34a" />
+          <ActivityIndicator color="#7c3aed" />
         )}
 
         {searched && !isPending && (

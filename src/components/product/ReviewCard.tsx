@@ -2,11 +2,10 @@ import { Image, Pressable, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { AppText } from '@/components/ui';
 import { StarRating } from './StarRating';
-import type { Review } from '@/features/products/types';
+import type { Review, UsageDuration } from '@/features/products/types';
 
 interface ReviewCardProps {
   review: Review;
-  onHelpful: () => void;
   onReport: () => void;
 }
 
@@ -17,26 +16,30 @@ function avatarColor(nickname: string | null) {
   return AVATAR_COLORS[sum % AVATAR_COLORS.length];
 }
 
+const USAGE_LABELS: Record<UsageDuration, string> = {
+  sample_one:       'Tried a sample',
+  one_week:         'Used for one week',
+  two_weeks:        'Used for two weeks',
+  one_month:        'Used for one month',
+  several_months:   'Used for several months',
+  one_year_plus:    'Used for over a year',
+};
+
 const DETAIL_SCORES = [
-  { key: 'performance_score',        label: 'Performance' },
-  { key: 'ease_of_use_score',        label: 'Ease of Use' },
-  { key: 'accuracy_of_claims_score', label: 'Accuracy' },
+  { key: 'performance_score',        label: 'Perf.' },
+  { key: 'ease_of_use_score',        label: 'Use' },
+  { key: 'accuracy_of_claims_score', label: 'Acc.' },
   { key: 'value_for_money_score',    label: 'Value' },
-  { key: 'packaging_score',          label: 'Packaging' },
+  { key: 'packaging_score',          label: 'Pack.' },
 ];
 
-export function ReviewCard({ review, onHelpful, onReport }: ReviewCardProps) {
-  const date = new Date(review.created_at).toLocaleDateString('en-US', {
-    year: 'numeric', month: 'short', day: 'numeric',
-  });
+export function ReviewCard({ review, onReport }: ReviewCardProps) {
   const nickname = review.user_nickname ?? 'Anonymous';
   const initial = nickname.charAt(0).toUpperCase();
   const color = avatarColor(nickname);
 
   return (
-    <View className={`rounded-2xl overflow-hidden ${review.hidden ? 'border border-amber-200' : 'border border-gray-100'}`}
-      style={{ backgroundColor: '#fff' }}
-    >
+    <View className={`rounded-2xl overflow-hidden ${review.hidden ? 'border border-amber-200' : 'border border-gray-100'}`}>
       {review.hidden && (
         <View className="flex-row items-center gap-1.5 bg-amber-50 px-4 py-2.5">
           <Ionicons name="eye-off-outline" size={13} color="#d97706" />
@@ -46,124 +49,88 @@ export function ReviewCard({ review, onHelpful, onReport }: ReviewCardProps) {
         </View>
       )}
 
-      {/* Header */}
-      <View className="flex-row items-start gap-3 px-4 pt-4 pb-3">
-        {/* Avatar */}
-        <View
-          className="w-10 h-10 rounded-full items-center justify-center shrink-0"
-          style={{ backgroundColor: color }}
-        >
-          <AppText variant="label" className="text-white font-bold">{initial}</AppText>
-        </View>
-
-        <View className="flex-1 gap-0.5">
-          <View className="flex-row items-center justify-between">
-            <AppText variant="label">{nickname}</AppText>
-            {!review.user_is_owner && (
-              <Pressable onPress={onReport} hitSlop={10} className="p-1 -mr-1">
-                <Ionicons name="flag-outline" size={14} color="#d1d5db" />
-              </Pressable>
-            )}
+      <View className="p-4 gap-3">
+        {/* Avatar + name/duration + stars */}
+        <View className="flex-row items-start gap-3">
+          <View className="w-10 h-10 rounded-full items-center justify-center shrink-0" style={{ backgroundColor: color }}>
+            <AppText variant="label" className="text-white font-bold">{initial}</AppText>
           </View>
-          <View className="flex-row items-center gap-2">
-            <StarRating score={review.overall_score} size={14} />
-            <AppText variant="caption" className="text-gray-400">{date}</AppText>
+          <View className="flex-1 gap-0.5">
+            <View className="flex-row items-center justify-between">
+              <AppText variant="label">{nickname}</AppText>
+              {!review.user_is_owner && (
+                <Pressable onPress={onReport} hitSlop={10} className="p-1 -mr-1">
+                  <Ionicons name="flag-outline" size={13} color="#d1d5db" />
+                </Pressable>
+              )}
+            </View>
+            <AppText variant="caption" className="text-gray-400">
+              {USAGE_LABELS[review.usage_duration]}
+            </AppText>
           </View>
+          <StarRating score={review.overall_score} size={14} />
         </View>
-      </View>
 
-      {/* Review text */}
-      <View className="mx-4 mb-3 bg-gray-50 rounded-xl px-3.5 py-3">
-        <AppText variant="body" className="text-gray-700 leading-relaxed italic">
-          "{review.review_text}"
-        </AppText>
-      </View>
-
-      {/* Pros / Cons */}
-      {(review.advantages || review.disadvantages) && (
-        <View className="mx-4 mb-3 gap-2">
-          {review.advantages ? (
-            <View className="flex-row items-start gap-2 bg-green-50 rounded-xl px-3 py-2.5">
-              <Ionicons name="checkmark-circle" size={15} color="#16a34a" style={{ marginTop: 1 }} />
-              <AppText variant="caption" className="text-green-800 flex-1 leading-relaxed">
-                {review.advantages}
-              </AppText>
-            </View>
-          ) : null}
-          {review.disadvantages ? (
-            <View className="flex-row items-start gap-2 bg-red-50 rounded-xl px-3 py-2.5">
-              <Ionicons name="close-circle" size={15} color="#ef4444" style={{ marginTop: 1 }} />
-              <AppText variant="caption" className="text-red-800 flex-1 leading-relaxed">
-                {review.disadvantages}
-              </AppText>
-            </View>
-          ) : null}
+        {/* Review text */}
+        <View className="bg-gray-50 rounded-xl px-3.5 py-3">
+          <AppText variant="body" className="text-gray-700 leading-relaxed italic">
+            "{review.review_text}"
+          </AppText>
         </View>
-      )}
 
-      {/* Detailed scores */}
-      <View className="mx-4 mb-3 gap-2">
-        {DETAIL_SCORES.map(({ key, label }) => {
-          const val = review[key as keyof Review] as number;
-          const pct = (val / 5) * 100;
-          const barColor = val >= 4 ? '#16a34a' : val >= 3 ? '#f59e0b' : '#ef4444';
-          return (
-            <View key={key} className="flex-row items-center gap-2">
-              <AppText variant="caption" className="text-gray-400" style={{ width: 82 }}>{label}</AppText>
-              <View className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                <View
-                  className="h-full rounded-full"
-                  style={{ width: `${pct}%`, backgroundColor: barColor }}
-                />
+        {/* Photo thumbnail */}
+        {review.image_url && (
+          <Image
+            source={{ uri: review.image_url }}
+            style={{ width: 80, height: 80, borderRadius: 10, backgroundColor: '#f9fafb' }}
+            resizeMode="cover"
+          />
+        )}
+
+        {/* Sub-scores */}
+        <View className="flex-row justify-between">
+          {DETAIL_SCORES.map(({ key, label }) => {
+            const val = review[key as keyof Review] as number;
+            return (
+              <View key={key} className="items-center gap-0.5">
+                <AppText variant="caption" className="text-gray-400" style={{ fontSize: 10 }}>
+                  {label}
+                </AppText>
+                <View className="flex-row items-end gap-px">
+                  <AppText variant="caption" className="font-bold text-gray-700">{val}</AppText>
+                  <AppText variant="caption" className="text-gray-400" style={{ fontSize: 9, marginBottom: 0.5 }}>/5</AppText>
+                </View>
               </View>
-              <AppText variant="caption" className="font-semibold text-gray-600" style={{ width: 18, textAlign: 'right' }}>
-                {val}
-              </AppText>
-            </View>
-          );
-        })}
-      </View>
-
-      {/* Review photo */}
-      {review.image_url && (
-        <Image
-          source={{ uri: review.image_url }}
-          style={{ marginHorizontal: 16, marginBottom: 12, height: 160, borderRadius: 12, backgroundColor: '#f9fafb' }}
-          resizeMode="cover"
-        />
-      )}
-
-      {/* Helpful footer */}
-      {!review.user_is_owner && (
-        <View
-          className="flex-row items-center gap-3 px-4 py-3"
-          style={{ borderTopWidth: 1, borderTopColor: '#f3f4f6' }}
-        >
-          <Pressable
-            onPress={onHelpful}
-            className={`flex-row items-center gap-1.5 rounded-full px-3 py-1.5 active:opacity-70 ${
-              review.user_marked_helpful ? 'bg-green-100' : 'bg-gray-100'
-            }`}
-          >
-            <Ionicons
-              name={review.user_marked_helpful ? 'thumbs-up' : 'thumbs-up-outline'}
-              size={13}
-              color={review.user_marked_helpful ? '#16a34a' : '#6b7280'}
-            />
-            <AppText
-              variant="caption"
-              className={`font-semibold ${review.user_marked_helpful ? 'text-green-700' : 'text-gray-500'}`}
-            >
-              Helpful
-            </AppText>
-          </Pressable>
-          {review.helpful_count > 0 && (
-            <AppText variant="caption" className="text-gray-400 flex-1">
-              {review.helpful_count} {review.helpful_count === 1 ? 'person' : 'people'} found this helpful
-            </AppText>
-          )}
+            );
+          })}
         </View>
-      )}
+
+        {/* Would buy again */}
+        {review.buy_again === 'yes' && (
+          <View className="flex-row items-center gap-1.5 flex-wrap">
+            <Ionicons name="checkmark-circle" size={15} color="#16a34a" />
+            <AppText variant="caption" className="text-green-700 font-semibold">Would buy again</AppText>
+            {review.advantages ? (
+              <>
+                <AppText variant="caption" className="text-gray-300">·</AppText>
+                <AppText variant="caption" className="text-gray-500">{review.advantages}</AppText>
+              </>
+            ) : null}
+          </View>
+        )}
+        {review.buy_again === 'no' && (
+          <View className="flex-row items-center gap-1.5">
+            <Ionicons name="close-circle" size={15} color="#ef4444" />
+            <AppText variant="caption" className="text-red-700 font-semibold">Would not buy again</AppText>
+          </View>
+        )}
+        {review.buy_again === 'not_sure' && (
+          <View className="flex-row items-center gap-1.5">
+            <Ionicons name="help-circle" size={15} color="#f59e0b" />
+            <AppText variant="caption" className="text-amber-700 font-semibold">Not sure</AppText>
+          </View>
+        )}
+      </View>
     </View>
   );
 }

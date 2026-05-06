@@ -7,9 +7,9 @@ interface ScoreBadgeProps {
 }
 
 function getStyle(score: number) {
-  if (score <= 3) return { bg: 'bg-green-100', text: 'text-green-800', label: 'Low' };
-  if (score <= 6) return { bg: 'bg-amber-100', text: 'text-amber-800', label: 'Moderate' };
-  return { bg: 'bg-red-100', text: 'text-red-700', label: 'High' };
+  if (score < 4) return { bg: 'bg-red-100', text: 'text-red-700', label: 'High' };
+  if (score < 8) return { bg: 'bg-amber-100', text: 'text-amber-800', label: 'Moderate' };
+  return { bg: 'bg-green-100', text: 'text-green-800', label: 'Low' };
 }
 
 export function ScoreBadge({ score, showLabel = true }: ScoreBadgeProps) {

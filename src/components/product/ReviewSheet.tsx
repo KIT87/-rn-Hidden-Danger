@@ -238,7 +238,7 @@ export function ReviewSheet({ visible, productId, userReviewed = false, initialR
 
           {loadingExisting ? (
             <View style={{ paddingVertical: 60, alignItems: 'center' }}>
-              <ActivityIndicator size="large" color="#16a34a" />
+              <ActivityIndicator size="large" color="#7c3aed" />
             </View>
           ) : (
             <ScrollView
@@ -507,13 +507,13 @@ function ChipGroup({
               paddingVertical: 8,
               borderRadius: 100,
               borderWidth: 1.5,
-              borderColor: selected ? '#16a34a' : '#e5e7eb',
-              backgroundColor: selected ? '#f0fdf4' : 'white',
+              borderColor: selected ? '#7c3aed' : '#e5e7eb',
+              backgroundColor: selected ? '#f5f3ff' : 'white',
             }}
           >
             <AppText
               variant="caption"
-              className={`font-medium ${selected ? 'text-green-700' : 'text-gray-600'}`}
+              style={{ color: selected ? '#7c3aed' : '#4b5563', fontWeight: '500' }}
             >
               {opt.label}
             </AppText>

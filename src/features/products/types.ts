@@ -41,7 +41,7 @@ export interface TopPicksResponse {
 
 export interface IngredientHazard {
   name: string;
-  rating: 'low' | 'moderate' | 'high';
+  rating: 'low' | 'moderate' | 'high' | 'critical';
 }
 
 export interface Ingredient {

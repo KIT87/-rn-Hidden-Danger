@@ -61,7 +61,7 @@ export default function MyReviewsScreen() {
           ListEmptyComponent={
             isLoading ? (
               <View className="items-center justify-center py-20">
-                <ActivityIndicator size="large" color="#16a34a" />
+                <ActivityIndicator size="large" color="#7c3aed" />
               </View>
             ) : (
               <View className="items-center justify-center gap-4 py-20">
@@ -173,8 +173,8 @@ function MyReviewCard({ review, onEdit, onProductPress }: MyReviewCardProps) {
         </View>
         {!review.locked ? (
           <Pressable onPress={onEdit} className="flex-row items-center gap-1 active:opacity-70" hitSlop={8}>
-            <Ionicons name="create-outline" size={14} color="#16a34a" />
-            <AppText variant="caption" className="text-green-600 font-medium">Edit</AppText>
+            <Ionicons name="create-outline" size={14} color="#7c3aed" />
+            <AppText variant="caption" style={{ color: '#7c3aed', fontWeight: '500' }}>Edit</AppText>
           </Pressable>
         ) : (
           <View className="flex-row items-center gap-1">

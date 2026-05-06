@@ -1,9 +1,7 @@
 import { Image, Pressable, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { AppText } from '@/components/ui';
-import { ScoreBadge } from './ScoreBadge';
-import { StarRating } from './StarRating';
+import { getScoreLevel } from '@/features/products/scoreLevel';
 import type { ProductSummary } from '@/features/products/types';
 
 interface ProductCardProps {
@@ -12,6 +10,7 @@ interface ProductCardProps {
 }
 
 export function ProductCard({ product, onPress }: ProductCardProps) {
+  const level = getScoreLevel(product.score);
   return (
     <Pressable
       onPress={onPress}
@@ -21,11 +20,11 @@ export function ProductCard({ product, onPress }: ProductCardProps) {
       {product.image_url ? (
         <Image
           source={{ uri: product.image_url }}
-          style={{ width: '100%', height: 120, backgroundColor: '#f9fafb' }}
+          style={{ width: '100%', height: 140, backgroundColor: '#f9fafb' }}
           resizeMode="contain"
         />
       ) : (
-        <View className="w-full bg-gray-50 items-center justify-center" style={{ height: 120 }}>
+        <View className="w-full bg-gray-50 items-center justify-center" style={{ height: 140 }}>
           <Ionicons name="cube-outline" size={36} color="#d1d5db" />
         </View>
       )}
@@ -34,21 +33,16 @@ export function ProductCard({ product, onPress }: ProductCardProps) {
         <AppText variant="caption" numberOfLines={1} className="text-gray-400">
           {product.brand_name}
         </AppText>
-        <View className="flex-row items-center justify-between">
-          <ScoreBadge score={product.score} />
-          <View className="flex-row items-center gap-1">
-            <MaterialCommunityIcons name="crown" size={11} color="#f59e0b" />
-            <AppText variant="caption" className="text-gray-400">{product.picks_count ?? 0}</AppText>
-          </View>
-        </View>
-        {product.reviews_count > 0 && product.average_score !== null && (
-          <View className="flex-row items-center gap-1 pt-0.5">
-            <StarRating score={Math.round(Number(product.average_score))} size={10} />
-            <AppText variant="caption" className="text-gray-400">
-              {Number(product.average_score).toFixed(1)}
+        <View className="flex-row items-center gap-2 mt-0.5">
+          <AppText style={{ fontWeight: '800', fontSize: 15, color: level.color }}>
+            {Number(product.score).toFixed(1)}
+          </AppText>
+          <View className="rounded-full px-2 py-0.5" style={{ backgroundColor: level.bg }}>
+            <AppText variant="caption" style={{ color: level.color, fontWeight: '600', fontSize: 10 }}>
+              {level.label}
             </AppText>
           </View>
-        )}
+        </View>
       </View>
     </Pressable>
   );

@@ -4,16 +4,15 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { BottomTabBarButtonProps } from '@react-navigation/bottom-tabs';
 
-function ScanTabButton({ onPress, accessibilityState }: BottomTabBarButtonProps) {
-  const focused = accessibilityState?.selected ?? false;
+function ScanTabButton({ onPress }: BottomTabBarButtonProps) {
   return (
     <Pressable
       onPress={onPress}
       style={styles.scanButton}
       accessibilityRole="button"
     >
-      <View style={[styles.scanIcon, focused ? styles.scanIconFocused : styles.scanIconUnfocused]}>
-        <Ionicons name="scan" size={24} color={focused ? 'white' : '#9ca3af'} />
+      <View style={styles.scanCircle}>
+        <Ionicons name="scan" size={26} color="white" />
       </View>
     </Pressable>
   );
@@ -24,25 +23,20 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 6,
+    marginTop: -22,
   },
-  scanIcon: {
-    width: 52,
-    height: 52,
-    borderRadius: 16,
+  scanCircle: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#7c3aed',
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  scanIconUnfocused: {
-    backgroundColor: '#f3f4f6',
-  },
-  scanIconFocused: {
-    backgroundColor: '#16a34a',
-    shadowColor: '#16a34a',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.35,
-    shadowRadius: 6,
-    elevation: 6,
+    shadowColor: '#7c3aed',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 10,
+    elevation: 8,
   },
 });
 
@@ -52,12 +46,19 @@ export default function TabsLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: '#16a34a',
+        tabBarActiveTintColor: '#7c3aed',
         tabBarInactiveTintColor: '#9ca3af',
         tabBarStyle: {
-          borderTopColor: '#f3f4f6',
-          height: 60 + insets.bottom,
+          backgroundColor: 'white',
+          borderTopWidth: 0,
+          height: 62 + insets.bottom,
           paddingBottom: insets.bottom || 8,
+          overflow: 'visible',
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: -2 },
+          shadowOpacity: 0.06,
+          shadowRadius: 8,
+          elevation: 12,
         },
       }}
     >
@@ -82,8 +83,8 @@ export default function TabsLayout() {
         name="hub"
         options={{
           title: 'The Hub',
-          tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? 'apps' : 'apps-outline'} size={22} color={color} />
+          tabBarIcon: ({ color }) => (
+            <Ionicons name="reorder-three-outline" size={24} color={color} />
           ),
         }}
       />

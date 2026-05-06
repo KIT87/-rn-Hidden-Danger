@@ -16,12 +16,12 @@ function ScanGraphic() {
       <View style={[scanGraphicStyles.corner, { top: 0, right: 0, borderTopWidth: 4, borderRightWidth: 4 }]} />
       <View style={[scanGraphicStyles.corner, { bottom: 0, left: 0, borderBottomWidth: 4, borderLeftWidth: 4 }]} />
       <View style={[scanGraphicStyles.corner, { bottom: 0, right: 0, borderBottomWidth: 4, borderRightWidth: 4 }]} />
-      <Ionicons name="barcode-outline" size={80} color="#d1fae5" />
+      <Ionicons name="barcode-outline" size={80} color="#ede9fe" />
     </View>
   );
 }
 const scanGraphicStyles = StyleSheet.create({
-  corner: { position: 'absolute', width: 36, height: 36, borderColor: '#16a34a' },
+  corner: { position: 'absolute', width: 36, height: 36, borderColor: '#7c3aed' },
 });
 
 const SCAN_SIZE = 260;
@@ -226,6 +226,6 @@ const styles = StyleSheet.create({
     position: 'absolute',
     width: CORNER,
     height: CORNER,
-    borderColor: '#16a34a',
+    borderColor: '#7c3aed',
   },
 });

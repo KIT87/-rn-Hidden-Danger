@@ -25,7 +25,7 @@ export function AppButton({ label, variant = 'primary', loading = false, disable
       {...props}
     >
       {loading
-        ? <ActivityIndicator size="small" color={variant === 'primary' ? '#fff' : '#16a34a'} />
+        ? <ActivityIndicator size="small" color={variant === 'primary' ? '#fff' : '#7c3aed'} />
         : <AppText variant="label" className={text}>{label}</AppText>
       }
     </Pressable>

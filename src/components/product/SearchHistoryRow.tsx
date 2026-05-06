@@ -46,7 +46,7 @@ export function SearchHistoryRow({ item, loading = false, onPress }: SearchHisto
       ) : null}
 
       {loading ? (
-        <ActivityIndicator size="small" color="#16a34a" />
+        <ActivityIndicator size="small" color="#7c3aed" />
       ) : (
         <AppText variant="caption" className="text-gray-400 shrink-0">
           {timeAgo(item.searched_at)}
