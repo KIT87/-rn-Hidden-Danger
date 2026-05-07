@@ -1,4 +1,5 @@
 import { storage } from '@/lib/storage/secure';
+import { decryptApiResponse, DecryptionError } from '@/lib/crypto';
 
 const BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:8080/api/v1';
 
@@ -59,7 +60,16 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
     throw err;
   }
 
-  const text = await res.text().catch(() => '');
+  const contentType = res.headers.get('content-type') ?? '';
+  const raw = await res.text().catch(() => '');
+
+  let text: string;
+  if (raw && contentType.includes('text/plain')) {
+    text = decryptApiResponse(raw);
+  } else {
+    text = raw;
+  }
+
   console.log(`[API] ${res.status} ${url}`, text.slice(0, 500));
 
   if (!res.ok) {

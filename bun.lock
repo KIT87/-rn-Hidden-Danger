@@ -8,6 +8,7 @@
         "@gluestack-style/react": "^1.0.57",
         "@gluestack-ui/themed": "^1.1.73",
         "@hookform/resolvers": "^3",
+        "@noble/ciphers": "^2.2.0",
         "@tanstack/react-query": "^5",
         "expo": "~54.0.33",
         "expo-camera": "~17.0.10",
@@ -416,6 +417,8 @@
     "@legendapp/motion": ["@legendapp/motion@2.5.3", "", { "dependencies": { "@legendapp/tools": "2.0.1" }, "peerDependencies": { "nativewind": ">=4.0.0", "react": ">=16", "react-native": "*" } }, "sha512-IcNiStiK3qG5LaIPLC8fVV0BHIrkf7EY5HfOv3xbuMH0z4D945yaaEDafP5bboHf/uj9XRjTQHVTtZgwpMNlHw=="],
 
     "@legendapp/tools": ["@legendapp/tools@2.0.1", "", { "peerDependencies": { "react": ">=16" }, "optionalPeers": ["react"] }, "sha512-Kxt0HWvWElRK6oybHRzcYxdgaKGwuaiRNreS7usW7QuHXRIHaH4yMcW2YNRG4DHE5fpefv+Bno/BohQcCE4FaA=="],
+
+    "@noble/ciphers": ["@noble/ciphers@2.2.0", "", {}, "sha512-Z6pjIZ/8IJcCGzb2S/0Px5J81yij85xASuk1teLNeg75bfT07MV3a/O2Mtn1I2se43k3lkVEcFaR10N4cgQcZA=="],
 
     "@nodelib/fs.scandir": ["@nodelib/fs.scandir@2.1.5", "", { "dependencies": { "@nodelib/fs.stat": "2.0.5", "run-parallel": "^1.1.9" } }, "sha512-vq24Bq3ym5HEQm2NKCr3yXDwjc7vTsEThRDnkp2DK9p1uqLR+DHurm/NOTo0KG7HYHU7eppKZj3MyqYuMBf62g=="],
 
