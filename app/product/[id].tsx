@@ -76,7 +76,7 @@ function ScoreArc({ score }: { score: number }) {
   const R = (SIZE - STROKE) / 2;
   const C = 2 * Math.PI * R;
   const arcLen = C * 0.75;
-  const filled = arcLen * (score / 10);
+  const filled = arcLen * ((10 - score) / 10);
   const { color, label } = getScoreInfo(score);
 
   return (
@@ -150,7 +150,7 @@ function ConcernCard({ field, level }: { field: string; level: ConcernLevel }) {
 
 function IngredientRow({ ingredient }: { ingredient: Ingredient }) {
   const [expanded, setExpanded] = useState(false);
-  const hasHazards = ingredient.hazards.length > 0;
+  const hasHazards = ingredient.concerns.length > 0 || !!ingredient.hazard_rating_display;
   const lc = getLevelColors(ingredient.hazard_rating_display);
   const displayLabel = ingredient.hazard_rating_display
     ? ingredient.hazard_rating_display.charAt(0).toUpperCase() + ingredient.hazard_rating_display.slice(1).toLowerCase()
@@ -178,24 +178,24 @@ function IngredientRow({ ingredient }: { ingredient: Ingredient }) {
       </Pressable>
       {expanded && (
         <View style={{ backgroundColor: '#fff8f1' }}>
-          {ingredient.hazards.map((h, i) => {
-            const hc = getLevelColors(h.rating);
-            const hlabel = typeof h.rating === 'string'
-              ? h.rating.charAt(0).toUpperCase() + h.rating.slice(1)
+          {ingredient.concerns.map((c, i) => {
+            const hc = getLevelColors(c.level);
+            const clabel = c.level
+              ? c.level.charAt(0).toUpperCase() + c.level.slice(1).toLowerCase()
               : '';
             return (
               <View
                 key={i}
                 className="flex-row items-center gap-3 px-4 py-2.5"
-                style={i < ingredient.hazards.length - 1
+                style={i < ingredient.concerns.length - 1
                   ? { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#fed7aa' }
                   : undefined
                 }
               >
                 <View className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: hc.dot }} />
-                <AppText variant="caption" className="flex-1 text-gray-600">{h.name}</AppText>
+                <AppText variant="caption" className="flex-1 text-gray-600">{c.concern_name}</AppText>
                 <View className="rounded-full px-2.5 py-0.5" style={{ backgroundColor: hc.bg }}>
-                  <AppText variant="caption" style={{ color: hc.text, fontWeight: '600' }}>{hlabel}</AppText>
+                  <AppText variant="caption" style={{ color: hc.text, fontWeight: '600' }}>{clabel}</AppText>
                 </View>
               </View>
             );
@@ -254,7 +254,7 @@ function IngredientsSection({ ingredients, flaggedCount }: {
   const [tab, setTab] = useState<'flagged' | 'all'>('flagged');
 
   const sorted = [...ingredients].sort((a, b) => a.position - b.position);
-  const flagged = sorted.filter((i) => i.hazards.length > 0);
+  const flagged = sorted.filter((i) => !!i.hazard_rating_display);
   const visible = tab === 'flagged' ? flagged : sorted;
 
   return (
@@ -426,9 +426,14 @@ export default function ProductDetailScreen() {
     setRefreshing(false);
   }
 
-  const flaggedCount = product
-    ? product.ingredients.filter((i) => i.hazards.length > 0).length
-    : 0;
+  const ingredients = product?.ingredients ?? [];
+  const certifiers = product?.certifiers ?? [];
+  const otherHigh = product?.concerns?.other_high ?? [];
+  const heroImageUrl = product
+    ? (product.images.find(i => i.type === 'main') ?? product.images[0])?.url ?? null
+    : null;
+
+  const flaggedCount = ingredients.filter((i) => !!i.hazard_rating_display).length;
 
   return (
     <View className="flex-1 bg-gray-50">
@@ -480,8 +485,8 @@ export default function ProductDetailScreen() {
         >
           {/* Hero */}
           <View style={{ height: 260, backgroundColor: '#f3f4f6' }}>
-            {product.image_url ? (
-              <Image source={{ uri: product.image_url }} style={StyleSheet.absoluteFill} resizeMode="contain" />
+            {heroImageUrl ? (
+              <Image source={{ uri: heroImageUrl }} style={StyleSheet.absoluteFill} resizeMode="contain" />
             ) : (
               <View className="flex-1 items-center justify-center">
                 <Ionicons name="cube-outline" size={72} color="#e5e7eb" />
@@ -521,7 +526,7 @@ export default function ProductDetailScreen() {
                 <AppText variant="caption" className="text-gray-600">{product.product_type}</AppText>
               </View>
             ) : null}
-            {product.certifiers.map((cert) => (
+            {certifiers.map((cert) => (
               <View key={cert.certifier_id} className="flex-row items-center gap-1.5 rounded-full px-3 py-1.5 bg-white border border-green-300">
                 <Ionicons name="checkmark-circle" size={12} color="#16a34a" />
                 <AppText variant="caption" style={{ color: '#15803d' }}>{cert.name}</AppText>
@@ -565,7 +570,7 @@ export default function ProductDetailScreen() {
               </View>
 
               {/* High concern areas */}
-              {product.concerns.other_high.length > 0 && (
+              {otherHigh.length > 0 && (
                 <View className="gap-2">
                   <View className="flex-row items-center gap-1.5">
                     <Ionicons name="alert-circle" size={14} color="#ef4444" />
@@ -574,7 +579,7 @@ export default function ProductDetailScreen() {
                     </Text>
                   </View>
                   <View className="flex-row flex-wrap gap-2">
-                    {product.concerns.other_high.map((item) => (
+                    {otherHigh.map((item) => (
                       <View key={item} className="rounded-full px-2.5 py-1 border border-red-200 bg-red-50">
                         <AppText variant="caption" className="text-red-700">{item}</AppText>
                       </View>
@@ -585,8 +590,8 @@ export default function ProductDetailScreen() {
             </View>
 
             {/* Ingredients */}
-            {product.ingredients.length > 0 ? (
-              <IngredientsSection ingredients={product.ingredients} flaggedCount={flaggedCount} />
+            {ingredients.length > 0 ? (
+              <IngredientsSection ingredients={ingredients} flaggedCount={flaggedCount} />
             ) : product.label_ingredients ? (
               <CollapsibleCard title="Ingredients">
                 <AppText variant="caption" className="text-gray-600 leading-relaxed">

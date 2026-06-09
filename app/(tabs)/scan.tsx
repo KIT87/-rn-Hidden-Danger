@@ -64,10 +64,11 @@ function ViewfinderOverlay({ onClose }: { onClose: () => void }) {
 interface CameraScannerProps {
   onClose: () => void;
   onProductFound: (productId: number) => void;
+  onPrefix: (code: string) => void;
   onNotFound: (code: string) => void;
 }
 
-function CameraScanner({ onClose, onProductFound, onNotFound }: CameraScannerProps) {
+function CameraScanner({ onClose, onProductFound, onPrefix, onNotFound }: CameraScannerProps) {
   const [permission, requestPermission] = useCameraPermissions();
   const [searching, setSearching] = useState(false);
   const scanLock = useRef(false);
@@ -98,9 +99,11 @@ function CameraScanner({ onClose, onProductFound, onNotFound }: CameraScannerPro
     setSearching(true);
 
     try {
-      const results = await productsApi.searchByEan(data);
-      if (results && results.length > 0) {
-        onProductFound(results[0].product_id);
+      const response = await productsApi.searchByEan(data);
+      if (response !== null && response.match_type === 'exact') {
+        onProductFound(response.results[0].product_id);
+      } else if (response !== null && response.match_type === 'prefix') {
+        onPrefix(data);
       } else {
         onNotFound(data);
       }
@@ -147,6 +150,10 @@ export default function ScanScreen() {
         onProductFound={(id) => {
           setCameraActive(false);
           router.push(`/product/${id}` as never);
+        }}
+        onPrefix={(code) => {
+          setCameraActive(false);
+          router.push({ pathname: '/search/ean', params: { code } } as never);
         }}
         onNotFound={(code) => {
           setCameraActive(false);
@@ -212,7 +219,7 @@ export default function ScanScreen() {
           onPress={() => router.push('/search/name' as never)}
         />
         <AppButton
-          label="Enter EAN"
+          label="Enter barcode"
           variant="ghost"
           onPress={() => router.push('/search/ean' as never)}
         />

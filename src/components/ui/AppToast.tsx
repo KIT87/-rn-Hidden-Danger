@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Animated, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -26,9 +26,9 @@ const DURATION_MS = 3000;
 export function useToast() {
   const [config, setConfig] = useState<ToastConfig | null>(null);
 
-  function showToast(message: string, variant: ToastVariant = 'error') {
+  const showToast = useCallback((message: string, variant: ToastVariant = 'error') => {
     setConfig({ message, variant, key: Date.now() });
-  }
+  }, []);
 
   return { toastConfig: config, showToast };
 }

@@ -11,6 +11,12 @@ export function setUnauthorizedHandler(handler: () => void) {
   handlingUnauthorized = false;
 }
 
+let networkErrorHandler: (() => void) | null = null;
+
+export function setNetworkErrorHandler(handler: () => void) {
+  networkErrorHandler = handler;
+}
+
 type HttpMethod = 'GET' | 'POST' | 'DELETE';
 
 interface RequestOptions {
@@ -57,6 +63,7 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
     });
   } catch (err) {
     console.error(`[API] Network error — ${method} ${url}`, err);
+    networkErrorHandler?.();
     throw err;
   }
 

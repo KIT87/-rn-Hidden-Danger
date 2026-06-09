@@ -8,7 +8,8 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GluestackUIProvider } from '@gluestack-ui/themed';
 import { queryClient } from '@/lib/query/client';
 import { AuthProvider, useAuth } from '@/features/auth/AuthContext';
-import { setUnauthorizedHandler } from '@/api/client';
+import { setNetworkErrorHandler, setUnauthorizedHandler } from '@/api/client';
+import { AppToast, useToast } from '@/components/ui/AppToast';
 
 // gluestack-ui v1 internally uses the deprecated RN SafeAreaView; our code uses react-native-safe-area-context
 LogBox.ignoreLogs(['SafeAreaView has been deprecated']);
@@ -46,6 +47,12 @@ function AuthGuard() {
 }
 
 export default function RootLayout() {
+  const { toastConfig, showToast } = useToast();
+
+  useEffect(() => {
+    setNetworkErrorHandler(() => showToast('No internet connection', 'error'));
+  }, [showToast]);
+
   return (
     <SafeAreaProvider>
       <GluestackUIProvider colorMode="light">
@@ -56,6 +63,7 @@ export default function RootLayout() {
           </AuthProvider>
         </QueryClientProvider>
       </GluestackUIProvider>
+      <AppToast config={toastConfig} />
     </SafeAreaProvider>
   );
 }

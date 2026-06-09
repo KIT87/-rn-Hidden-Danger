@@ -90,9 +90,9 @@ function PickRow({ product, onPress, onRemove }: PickRowProps) {
       onPress={onPress}
       className="flex-row items-center gap-3 bg-white rounded-2xl border border-gray-100 p-3 active:opacity-75"
     >
-      {product.image_url ? (
+      {product.images[0]?.url ? (
         <Image
-          source={{ uri: product.image_url }}
+          source={{ uri: product.images[0].url }}
           style={{ width: 64, height: 64, borderRadius: 12, backgroundColor: '#f9fafb' }}
           resizeMode="contain"
         />

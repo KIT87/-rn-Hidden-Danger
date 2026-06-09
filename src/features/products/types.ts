@@ -13,6 +13,12 @@ export interface DetailedConcerns extends Concerns {
   other_high: string[];
 }
 
+export interface ProductImage {
+  url: string;
+  source: 'a' | 'b' | 'c';
+  type: 'main' | 'mobile';
+}
+
 export interface ProductSummary {
   product_id: number;
   name: string;
@@ -20,7 +26,7 @@ export interface ProductSummary {
   score: number;
   volume: number | null;
   volume_units: string | null;
-  image_url: string | null;
+  images: ProductImage[];
   picks_count: number;
   reviews_count: number;
   average_score: number | null;
@@ -32,6 +38,13 @@ export interface PickResponse {
   user_picked: boolean;
 }
 
+export interface EanSearchResult {
+  match_type: 'exact' | 'prefix';
+  results: ProductSummary[];
+  total: number;
+  page: number;
+}
+
 export interface TopPicksResponse {
   total_used: number;
   limit: number;
@@ -39,9 +52,11 @@ export interface TopPicksResponse {
   picks: ProductSummary[];
 }
 
-export interface IngredientHazard {
-  name: string;
-  rating: 'low' | 'moderate' | 'high' | 'critical';
+export interface IngredientConcern {
+  source: 'a' | 'b' | 'c';
+  concern_name: string;
+  level: string;
+  description: string | null;
 }
 
 export interface Ingredient {
@@ -51,8 +66,7 @@ export interface Ingredient {
   active_ingredient: boolean;
   trace_ingredient: boolean;
   hazard_rating_display: string | null;
-  hazards: IngredientHazard[];
-  concerns: string[];
+  concerns: IngredientConcern[];
 }
 
 export interface Certifier {
@@ -62,6 +76,8 @@ export interface Certifier {
   image_url: string;
   jurisdiction: string | null;
   oca_rating: string | null;
+  bonus_points: number | null;
+  oca_comments: string | null;
 }
 
 export interface ProductDetail extends Omit<ProductSummary, 'concerns'> {
@@ -129,13 +145,13 @@ export interface Review {
 
 export interface MyReview extends Review {
   product_name: string;
-  product_image_url: string | null;
+  product_images: ProductImage[];
 }
 
 export interface ReviewsResponse {
   product_id: number;
   product_name: string;
-  image_url: string | null;
+  images: ProductImage[];
   page: number;
   total_pages: number;
   total_count: number;

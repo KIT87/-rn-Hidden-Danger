@@ -32,8 +32,8 @@ function ProductRow({ product, onPress }: { product: ProductSummary; onPress: ()
   return (
     <Pressable onPress={onPress} className="flex-row items-center gap-3 py-3 active:bg-gray-50">
       <View className="rounded-xl overflow-hidden bg-gray-50 shrink-0" style={{ width: 56, height: 56 }}>
-        {product.image_url ? (
-          <Image source={{ uri: product.image_url }} style={{ width: 56, height: 56 }} resizeMode="contain" />
+        {product.images[0]?.url ? (
+          <Image source={{ uri: product.images[0].url }} style={{ width: 56, height: 56 }} resizeMode="contain" />
         ) : (
           <View className="flex-1 items-center justify-center">
             <Ionicons name="cube-outline" size={22} color="#d1d5db" />
@@ -143,9 +143,9 @@ export default function HomeScreen() {
   async function openEanResult(ean: string) {
     setLoadingEan(ean);
     try {
-      const results = await productsApi.searchByEan(ean);
-      if (results && results.length > 0) {
-        router.push(`/product/${results[0].product_id}` as never);
+      const response = await productsApi.searchByEan(ean);
+      if (response !== null && response.match_type === 'exact') {
+        router.push(`/product/${response.results[0].product_id}` as never);
       } else {
         router.push({ pathname: '/search/ean', params: { code: ean } });
       }

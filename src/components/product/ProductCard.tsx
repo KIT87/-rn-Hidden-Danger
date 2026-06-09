@@ -17,9 +17,9 @@ export function ProductCard({ product, onPress }: ProductCardProps) {
       className="bg-white rounded-2xl border border-gray-100 overflow-hidden active:opacity-75"
       style={{ width: 168 }}
     >
-      {product.image_url ? (
+      {product.images[0]?.url ? (
         <Image
-          source={{ uri: product.image_url }}
+          source={{ uri: product.images[0].url }}
           style={{ width: '100%', height: 140, backgroundColor: '#f9fafb' }}
           resizeMode="contain"
         />

@@ -1,5 +1,6 @@
 import { api } from '@/api/client';
 import type {
+  EanSearchResult,
   HelpfulResponse,
   ImageUploadUrlResponse,
   MyReviewsResponse,
@@ -20,7 +21,8 @@ export const productsApi = {
   recentlyViewed: () => api.get<ProductSummary[]>('products/recently_viewed'),
   detail: (id: number) => api.get<ProductDetail>(`products/${id}`),
   searchByName: (name: string) => api.post<ProductSummary[]>('search/name', { name }),
-  searchByEan: (ean: string) => api.post<ProductSummary[]>('search/ean', { ean }),
+  searchByEan: (ean: string, offset = 0) =>
+    api.post<EanSearchResult>('search/ean', { ean, offset }),
   history: () => api.get<SearchHistoryItem[]>('search/history'),
   picks: () => api.get<TopPicksResponse>('picks'),
   addPick: (id: number) => api.post<PickResponse>(`products/${id}/pick`),

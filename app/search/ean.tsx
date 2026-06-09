@@ -13,30 +13,73 @@ export default function EanSearchScreen() {
   const router = useRouter();
   const { code } = useLocalSearchParams<{ code?: string }>();
   const [ean, setEan] = useState(code ?? '');
-  const [results, setResults] = useState<ProductSummary[] | null>(null);
+  const [searchedEan, setSearchedEan] = useState('');
+  const [results, setResults] = useState<ProductSummary[]>([]);
+  const [total, setTotal] = useState<number | null>(null);
+  const [isPrefix, setIsPrefix] = useState(false);
   const [searched, setSearched] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
 
   const { mutate, isPending } = useMutation({
     mutationFn: (value: string) => productsApi.searchByEan(value),
     onSuccess: (data) => {
-      setResults(data ?? []);
+      if (data === null) {
+        setResults([]);
+        setTotal(null);
+        setIsPrefix(false);
+        setSearched(true);
+        return;
+      }
+      if (data.match_type === 'exact') {
+        router.replace(`/product/${data.results[0].product_id}` as never);
+        return;
+      }
+      setResults(data.results);
+      setTotal(data.total);
+      setIsPrefix(true);
       setSearched(true);
     },
   });
 
   useEffect(() => {
-    if (code) mutate(code);
+    if (code) {
+      setSearchedEan(code);
+      mutate(code);
+    }
   }, []);
 
   function handleSearch() {
     if (!ean.trim()) return;
-    mutate(ean.trim());
+    const trimmed = ean.trim();
+    setSearchedEan(trimmed);
+    setResults([]);
+    setTotal(null);
+    setIsPrefix(false);
+    setSearched(false);
+    mutate(trimmed);
   }
+
+  async function handleLoadMore() {
+    if (loadingMore || !isPrefix) return;
+    setLoadingMore(true);
+    try {
+      const data = await productsApi.searchByEan(searchedEan, results.length);
+      if (data && data.match_type === 'prefix') {
+        setResults((prev) => [...prev, ...data.results]);
+      }
+    } catch {
+      // network errors surfaced globally
+    } finally {
+      setLoadingMore(false);
+    }
+  }
+
+  const hasMore = isPrefix && total !== null && results.length < total;
 
   return (
     <SafeAreaView className="flex-1 bg-gray-50">
       <AppHeader
-        title="Enter EAN code"
+        title="Enter barcode"
         left={
           <Pressable onPress={() => router.back()} hitSlop={8}>
             <Ionicons name="arrow-back" size={24} color="#111827" />
@@ -67,13 +110,22 @@ export default function EanSearchScreen() {
           />
         </View>
 
-        {isPending && (
-          <ActivityIndicator color="#7c3aed" />
-        )}
+        {isPending && <ActivityIndicator color="#7c3aed" />}
 
         {searched && !isPending && (
           <View className="gap-3">
-            {results === null || results.length === 0 ? (
+
+            {/* Similar products banner */}
+            {isPrefix && results.length > 0 && (
+              <View className="flex-row items-start gap-2.5 bg-amber-50 border border-amber-100 rounded-2xl px-4 py-3">
+                <Ionicons name="information-circle" size={18} color="#d97706" style={{ marginTop: 1 }} />
+                <AppText variant="caption" className="flex-1 text-amber-700">
+                  No exact match found. Showing similar products from the same brand.
+                </AppText>
+              </View>
+            )}
+
+            {results.length === 0 ? (
               <View className="items-center py-10 gap-4">
                 <View className="w-24 h-24 rounded-full bg-red-50 items-center justify-center">
                   <Ionicons name="barcode-outline" size={44} color="#fca5a5" />
@@ -95,8 +147,11 @@ export default function EanSearchScreen() {
             ) : (
               <>
                 <AppText variant="caption" className="text-gray-400">
-                  {results.length} result{results.length !== 1 ? 's' : ''} found
+                  {total !== null
+                    ? `${total} similar product${total !== 1 ? 's' : ''}`
+                    : `${results.length} result${results.length !== 1 ? 's' : ''} found`}
                 </AppText>
+
                 <View className="flex-row flex-wrap gap-3">
                   {results.map((p) => (
                     <ProductCard
@@ -106,6 +161,25 @@ export default function EanSearchScreen() {
                     />
                   ))}
                 </View>
+
+                {hasMore && (
+                  <Pressable
+                    onPress={handleLoadMore}
+                    disabled={loadingMore}
+                    className="flex-row items-center justify-center gap-2 bg-white border border-gray-200 rounded-2xl py-3.5 active:bg-gray-50"
+                  >
+                    {loadingMore ? (
+                      <ActivityIndicator size="small" color="#7c3aed" />
+                    ) : (
+                      <>
+                        <Ionicons name="chevron-down" size={15} color="#7c3aed" />
+                        <AppText variant="caption" style={{ color: '#7c3aed', fontWeight: '600' }}>
+                          Load more · {total! - results.length} remaining
+                        </AppText>
+                      </>
+                    )}
+                  </Pressable>
+                )}
               </>
             )}
           </View>

@@ -28,6 +28,8 @@ export function useFeaturedProducts() {
       });
       const nextTotal = offset + batch.length;
       setHasMore(batch.length === PAGE_SIZE && nextTotal < MAX);
+    } catch (err) {
+      console.error('[useFeaturedProducts]', err);
     } finally {
       setInitialLoading(false);
       setLoading(false);
