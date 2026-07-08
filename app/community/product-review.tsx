@@ -131,9 +131,9 @@ function MyReviewCard({ review, onEdit, onProductPress }: MyReviewCardProps) {
         onPress={onProductPress}
         className="flex-row items-center gap-3 px-4 pt-4 pb-3 active:opacity-75"
       >
-        {review.product_images?.[0]?.url ? (
+        {review.product_images?.[0] ? (
           <Image
-            source={{ uri: review.product_images[0].url }}
+            source={{ uri: review.product_images[0] }}
             style={{ width: 44, height: 44, borderRadius: 8, backgroundColor: '#f9fafb' }}
             resizeMode="contain"
           />

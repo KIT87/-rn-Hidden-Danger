@@ -11,12 +11,13 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { AppCard, AppScreen, AppText } from '@/components/ui';
-import { ProductCard, SearchHistoryRow } from '@/components/product';
+import { ProductCard, RiskScore, SearchHistoryRow, TopRatedRow } from '@/components/product';
 import { useFeaturedProducts } from '@/features/products/useFeaturedProducts';
 import { useRecentlyViewed } from '@/features/products/useRecentlyViewed';
+import { useTopRated } from '@/features/products/useTopRated';
 import { useSearchHistory } from '@/features/products/useSearchHistory';
 import { productsApi } from '@/features/products/api';
-import { getScoreLevel } from '@/features/products/scoreLevel';
+import { findExactGtinMatch } from '@/features/products/searchMapper';
 import { useAuth } from '@/features/auth/AuthContext';
 import type { ProductSummary } from '@/features/products/types';
 
@@ -28,12 +29,11 @@ const MAX = 10;
 // ─── Product list row (for vertical sections) ─────────────────────────────────
 
 function ProductRow({ product, onPress }: { product: ProductSummary; onPress: () => void }) {
-  const level = getScoreLevel(product.score);
   return (
     <Pressable onPress={onPress} className="flex-row items-center gap-3 py-3 active:bg-gray-50">
       <View className="rounded-xl overflow-hidden bg-gray-50 shrink-0" style={{ width: 56, height: 56 }}>
-        {product.images[0]?.url ? (
-          <Image source={{ uri: product.images[0].url }} style={{ width: 56, height: 56 }} resizeMode="contain" />
+        {product.image_url ?? product.images[0] ? (
+          <Image source={{ uri: product.image_url ?? product.images[0] }} style={{ width: 56, height: 56 }} resizeMode="contain" />
         ) : (
           <View className="flex-1 items-center justify-center">
             <Ionicons name="cube-outline" size={22} color="#d1d5db" />
@@ -44,16 +44,7 @@ function ProductRow({ product, onPress }: { product: ProductSummary; onPress: ()
         <AppText variant="label" numberOfLines={2}>{product.name}</AppText>
         <AppText variant="caption" className="text-gray-400">{product.brand_name}</AppText>
       </View>
-      <View className="items-end gap-1">
-        <AppText style={{ fontWeight: '800', fontSize: 15, color: level.color }}>
-          {Number(product.score).toFixed(1)}
-        </AppText>
-        <View className="rounded-full px-2 py-0.5" style={{ backgroundColor: level.bg }}>
-          <AppText variant="caption" style={{ color: level.color, fontWeight: '600', fontSize: 10 }}>
-            {level.label}
-          </AppText>
-        </View>
-      </View>
+      <RiskScore riskScore={product.risk_score} size="sm" />
     </Pressable>
   );
 }
@@ -105,6 +96,8 @@ export default function HomeScreen() {
   const { products, initialLoading, loading: loadingMoreProducts, hasMore, reload, loadMore } = useFeaturedProducts();
   useEffect(() => { reload(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const { data: topRated, isLoading: loadingTopRated, refetch: refetchTopRated } = useTopRated();
+
   // Auto-scroll Discover to first newly loaded product
   const discoverRef = useRef<ScrollView>(null);
   const prevProductCount = useRef(0);
@@ -133,7 +126,7 @@ export default function HomeScreen() {
 
   async function onRefresh() {
     setRefreshing(true);
-    const promises: Promise<unknown>[] = [reload()];
+    const promises: Promise<unknown>[] = [reload(), refetchTopRated()];
     if (recentlyViewedOpen) promises.push(refetchRecentlyViewed());
     if (historyEnabled) promises.push(refetchHistory());
     await Promise.all(promises);
@@ -143,9 +136,10 @@ export default function HomeScreen() {
   async function openEanResult(ean: string) {
     setLoadingEan(ean);
     try {
-      const response = await productsApi.searchByEan(ean);
-      if (response !== null && response.match_type === 'exact') {
-        router.push(`/product/${response.results[0].product_id}` as never);
+      const response = await productsApi.search({ ean, limit: 10 });
+      const exact = response ? findExactGtinMatch(response.products, ean) : undefined;
+      if (exact) {
+        router.push(`/product/${exact.product_id}` as never);
       } else {
         router.push({ pathname: '/search/ean', params: { code: ean } });
       }
@@ -224,6 +218,39 @@ export default function HomeScreen() {
           <MaterialCommunityIcons name="barcode-scan" size={20} color="white" />
         </Pressable>
       </View>
+
+      {/* Top rated */}
+      {(loadingTopRated || (topRated && topRated.length > 0)) && (
+        <View className="gap-3">
+          <View className="flex-row items-center justify-between">
+            <View className="flex-row items-center gap-2">
+              <Ionicons name="star" size={16} color="#f59e0b" />
+              <AppText variant="heading">Top rated</AppText>
+            </View>
+            {topRated && topRated.length > 5 && (
+              <Pressable onPress={() => router.push('/top-rated' as never)} hitSlop={8}>
+                <AppText variant="caption" style={{ color: '#7c3aed', fontWeight: '600' }}>See all</AppText>
+              </Pressable>
+            )}
+          </View>
+
+          {loadingTopRated && !topRated ? (
+            <ActivityIndicator color="#7c3aed" className="py-6" />
+          ) : (
+            <AppCard>
+              <View className="divide-y divide-gray-100">
+                {topRated!.slice(0, 5).map((product) => (
+                  <TopRatedRow
+                    key={product.product_id}
+                    product={product}
+                    onPress={() => router.push(`/product/${product.product_id}` as never)}
+                  />
+                ))}
+              </View>
+            </AppCard>
+          )}
+        </View>
+      )}
 
       {/* Discover */}
       <View className="gap-3">

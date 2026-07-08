@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import {
   ActivityIndicator,
+  Dimensions,
   Image,
   Pressable,
   RefreshControl,
@@ -9,12 +10,13 @@ import {
   Text,
   View,
 } from 'react-native';
-import Svg, { Circle } from 'react-native-svg';
+import Svg, { Defs, LinearGradient as SvgLinearGradient, Rect, Stop } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { AppBadge, AppModal, AppText, AppToast, useToast } from '@/components/ui';
+import { AppModal, AppText, AppToast, useToast } from '@/components/ui';
+import { RiskScore } from '@/components/product/RiskScore';
 import { StarRating } from '@/components/product/StarRating';
 import { ReviewCard } from '@/components/product/ReviewCard';
 import { ReviewSheet } from '@/components/product/ReviewSheet';
@@ -23,26 +25,29 @@ import { useTogglePick } from '@/features/products/useTogglePick';
 import { useProductReviews } from '@/features/products/useProductReviews';
 import { useReportReview } from '@/features/products/useReportReview';
 import type {
-  ConcernLevel,
+  HazardCategories,
+  HazardSeverity,
   Ingredient,
   ReportReason,
 } from '@/features/products/types';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-// 1–3 = High concern (red), 4–7 = Moderate (amber), 8–10 = Low concern (green)
-function getScoreInfo(score: number) {
-  if (score < 4) return { color: '#ef4444', label: 'High' };
-  if (score < 8) return { color: '#f59e0b', label: 'Moderate' };
-  return { color: '#16a34a', label: 'Low' };
-}
+// Hero image + its bottom-up dark fade (for white brand/title legibility).
+// The fade spans at most the bottom 25% of the hero image, transparent at the
+// top edge of the fade down to a soft black at the very bottom.
+const { width: SCREEN_W } = Dimensions.get('window');
+const HERO_H = 260;
+const HERO_FADE_H = Math.round(HERO_H * 0.4);
+const HERO_PAD = 20; // breathing room above/below the product image
 
-function concernVariant(level: ConcernLevel): 'safe' | 'caution' | 'danger' {
-  if (level === 'LOW') return 'safe';
-  if (level === 'MODERATE') return 'caution';
-  if (level === 'HIGH') return 'danger';
-  return 'safe';
-}
+// Product-level concerns not provided right now — commented out until reinstated.
+// function concernVariant(level: ConcernLevel): 'safe' | 'caution' | 'danger' {
+//   if (level === 'LOW') return 'safe';
+//   if (level === 'MODERATE') return 'caution';
+//   if (level === 'HIGH') return 'danger';
+//   return 'safe';
+// }
 
 type LevelKey = 'low' | 'moderate' | 'high' | 'critical';
 
@@ -68,80 +73,45 @@ const LEGEND_ITEMS: { label: string; color: string }[] = [
   { label: 'Critical', color: '#ef4444' },
 ];
 
-// ─── Score arc ────────────────────────────────────────────────────────────────
 
-function ScoreArc({ score }: { score: number }) {
-  const SIZE = 88;
-  const STROKE = 9;
-  const R = (SIZE - STROKE) / 2;
-  const C = 2 * Math.PI * R;
-  const arcLen = C * 0.75;
-  const filled = arcLen * ((10 - score) / 10);
-  const { color, label } = getScoreInfo(score);
+// ─── Hazard category card ─────────────────────────────────────────────────────
+// Per-category hazard breakdown from the product-detail `hazard_categories`
+// (allergy / irritation / cancer / endocrine / environmental / other), each a
+// severity 1–3. Only flagged (non-null) categories are rendered.
 
+type IconName = React.ComponentProps<typeof Ionicons>['name'];
+
+const HAZARD_CATEGORY_META: { key: keyof HazardCategories; label: string; icon: IconName }[] = [
+  { key: 'allergy',       label: 'Allergy',       icon: 'leaf-outline' },
+  { key: 'irritation',    label: 'Irritation',    icon: 'water-outline' },
+  { key: 'cancer',        label: 'Cancer',        icon: 'ribbon-outline' },
+  { key: 'endocrine',     label: 'Endocrine',     icon: 'flash-outline' },
+  { key: 'environmental', label: 'Environmental', icon: 'earth-outline' },
+  { key: 'other',         label: 'Other',         icon: 'alert-circle-outline' },
+];
+
+const SEVERITY_META: Record<HazardSeverity, { label: string; colors: typeof SAFE_COLORS }> = {
+  1: { label: 'Low',      colors: LEVEL_COLORS.low },
+  2: { label: 'Moderate', colors: LEVEL_COLORS.moderate },
+  3: { label: 'High',     colors: LEVEL_COLORS.high },
+};
+
+function HazardCategoryCard({ label, icon, severity }: {
+  label: string;
+  icon: IconName;
+  severity: HazardSeverity;
+}) {
+  const { label: sevLabel, colors } = SEVERITY_META[severity];
   return (
-    <View style={{ width: SIZE, height: SIZE, alignItems: 'center', justifyContent: 'center' }}>
-      <Svg width={SIZE} height={SIZE} style={StyleSheet.absoluteFill}>
-        <Circle
-          cx={SIZE / 2} cy={SIZE / 2} r={R}
-          fill="none"
-          stroke="#e5e7eb"
-          strokeWidth={STROKE}
-          strokeDasharray={`${arcLen} ${C - arcLen}`}
-          strokeLinecap="round"
-          transform={`rotate(135 ${SIZE / 2} ${SIZE / 2})`}
-        />
-        <Circle
-          cx={SIZE / 2} cy={SIZE / 2} r={R}
-          fill="none"
-          stroke={color}
-          strokeWidth={STROKE}
-          strokeDasharray={`${filled} ${C - filled}`}
-          strokeLinecap="round"
-          transform={`rotate(135 ${SIZE / 2} ${SIZE / 2})`}
-        />
-      </Svg>
-      <AppText variant="caption" style={{ fontWeight: '600', color: '#6b7280', fontSize: 12 }}>
-        {label}
-      </AppText>
-    </View>
-  );
-}
-
-// ─── Concern card ─────────────────────────────────────────────────────────────
-
-const CONCERN_ICONS: Record<string, React.ComponentProps<typeof Ionicons>['name']> = {
-  cancer: 'ribbon-outline',
-  dev_rep: 'body-outline',
-  allergy: 'leaf-outline',
-  use_res_level: 'warning-outline',
-};
-
-const CONCERN_LABELS: Record<string, string> = {
-  cancer: 'Cancer Risk',
-  dev_rep: 'Dev. & Repro.',
-  allergy: 'Allergy Risk',
-  use_res_level: 'Use Restrictions',
-};
-
-const VARIANT_COLORS = {
-  safe:    { bg: '#f0fdf4', icon: '#16a34a' },
-  caution: { bg: '#fffbeb', icon: '#f59e0b' },
-  danger:  { bg: '#fef2f2', icon: '#ef4444' },
-};
-
-function ConcernCard({ field, level }: { field: string; level: ConcernLevel }) {
-  const variant = concernVariant(level);
-  const { bg, icon: iconColor } = level ? VARIANT_COLORS[variant] : { bg: '#f9fafb', icon: '#d1d5db' };
-  return (
-    <View className="flex-1 rounded-2xl p-3.5 gap-3" style={{ backgroundColor: bg }}>
+    <View className="flex-1 rounded-2xl p-3.5 gap-3" style={{ backgroundColor: colors.bg }}>
       <View className="flex-row items-center justify-between">
-        <Ionicons name={CONCERN_ICONS[field]} size={18} color={iconColor} />
-        {level && <AppBadge label={level} variant={variant} />}
+        <Ionicons name={icon} size={18} color={colors.text} />
+        <View className="flex-row items-center gap-1 rounded-full px-2 py-0.5" style={{ backgroundColor: 'rgba(255,255,255,0.65)' }}>
+          <View className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: colors.dot }} />
+          <AppText variant="caption" style={{ color: colors.text, fontWeight: '600' }}>{sevLabel}</AppText>
+        </View>
       </View>
-      <AppText variant="caption" className="font-semibold text-gray-700">
-        {CONCERN_LABELS[field]}
-      </AppText>
+      <AppText variant="caption" className="font-semibold text-gray-700">{label}</AppText>
     </View>
   );
 }
@@ -149,59 +119,24 @@ function ConcernCard({ field, level }: { field: string; level: ConcernLevel }) {
 // ─── Ingredient row ───────────────────────────────────────────────────────────
 
 function IngredientRow({ ingredient }: { ingredient: Ingredient }) {
-  const [expanded, setExpanded] = useState(false);
-  const hasHazards = ingredient.concerns.length > 0 || !!ingredient.hazard_rating_display;
-  const lc = getLevelColors(ingredient.hazard_rating_display);
-  const displayLabel = ingredient.hazard_rating_display
-    ? ingredient.hazard_rating_display.charAt(0).toUpperCase() + ingredient.hazard_rating_display.slice(1).toLowerCase()
-    : null;
+  const lc = getLevelColors(ingredient.hazard_level);
+  // Only HIGH/MODERATE/LOW carry a meaningful badge; UNKNOWN stays unlabelled.
+  const displayLabel =
+    ingredient.hazard_level === 'UNKNOWN'
+      ? null
+      : ingredient.hazard_level.charAt(0) + ingredient.hazard_level.slice(1).toLowerCase();
 
   return (
-    <View>
-      <Pressable
-        onPress={() => hasHazards && setExpanded((v) => !v)}
-        className="flex-row items-center gap-3 px-4 py-3.5"
-        style={expanded ? { backgroundColor: '#fff8f1' } : undefined}
-      >
-        <View className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: lc.dot }} />
-        <AppText variant="label" className="flex-1 capitalize" numberOfLines={expanded ? undefined : 2}>
-          {ingredient.name.toLowerCase()}
-        </AppText>
-        {displayLabel ? (
-          <View className="rounded-full px-2.5 py-0.5" style={{ backgroundColor: lc.bg }}>
-            <AppText variant="caption" style={{ color: lc.text, fontWeight: '600' }}>{displayLabel}</AppText>
-          </View>
-        ) : null}
-        {hasHazards && (
-          <Ionicons name={expanded ? 'chevron-up' : 'chevron-down'} size={14} color="#9ca3af" />
-        )}
-      </Pressable>
-      {expanded && (
-        <View style={{ backgroundColor: '#fff8f1' }}>
-          {ingredient.concerns.map((c, i) => {
-            const hc = getLevelColors(c.level);
-            const clabel = c.level
-              ? c.level.charAt(0).toUpperCase() + c.level.slice(1).toLowerCase()
-              : '';
-            return (
-              <View
-                key={i}
-                className="flex-row items-center gap-3 px-4 py-2.5"
-                style={i < ingredient.concerns.length - 1
-                  ? { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#fed7aa' }
-                  : undefined
-                }
-              >
-                <View className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: hc.dot }} />
-                <AppText variant="caption" className="flex-1 text-gray-600">{c.concern_name}</AppText>
-                <View className="rounded-full px-2.5 py-0.5" style={{ backgroundColor: hc.bg }}>
-                  <AppText variant="caption" style={{ color: hc.text, fontWeight: '600' }}>{clabel}</AppText>
-                </View>
-              </View>
-            );
-          })}
+    <View className="flex-row items-center gap-3 px-4 py-3.5">
+      <View className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: lc.dot }} />
+      <AppText variant="label" className="flex-1 capitalize" numberOfLines={2}>
+        {ingredient.name.toLowerCase()}
+      </AppText>
+      {displayLabel ? (
+        <View className="rounded-full px-2.5 py-0.5" style={{ backgroundColor: lc.bg }}>
+          <AppText variant="caption" style={{ color: lc.text, fontWeight: '600' }}>{displayLabel}</AppText>
         </View>
-      )}
+      ) : null}
     </View>
   );
 }
@@ -246,15 +181,15 @@ function CollapsibleCard({
 
 // ─── Ingredients section ──────────────────────────────────────────────────────
 
-function IngredientsSection({ ingredients, flaggedCount }: {
+function IngredientsSection({ ingredients }: {
   ingredients: Ingredient[];
-  flaggedCount: number;
 }) {
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState<'flagged' | 'all'>('flagged');
 
   const sorted = [...ingredients].sort((a, b) => a.position - b.position);
-  const flagged = sorted.filter((i) => !!i.hazard_rating_display);
+  const flagged = sorted.filter((i) => i.hazard_level === 'HIGH' || i.hazard_level === 'MODERATE');
+  const flaggedCount = flagged.length;
   const visible = tab === 'flagged' ? flagged : sorted;
 
   return (
@@ -323,10 +258,6 @@ function IngredientsSection({ ingredients, flaggedCount }: {
               </View>
             )}
           </View>
-
-          <AppText variant="caption" className="text-gray-400 text-center" style={{ fontSize: 11 }}>
-            Tap any flagged ingredient to see detailed hazard breakdown
-          </AppText>
         </View>
       )}
     </View>
@@ -418,7 +349,25 @@ export default function ProductDetailScreen() {
     onError: showToast,
   });
 
-  const allReviews = reviewPages?.pages.flatMap((p) => p?.reviews ?? []) ?? [];
+  // Newest first (fresh on top), regardless of the API's helpful-first ordering.
+  const allReviews = [...(reviewPages?.pages.flatMap((p) => p?.reviews ?? []) ?? [])].sort(
+    (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+  );
+
+  // ── Review summary ──
+  // buy-again counts come back on the reviews-list response (page 1 holds the
+  // totals across all pages); not_sure/unset are excluded server-side.
+  const firstReviewPage = reviewPages?.pages?.[0] ?? null;
+  const buyYes = firstReviewPage?.buy_again_yes ?? 0;
+  const buyNo = firstReviewPage?.buy_again_no ?? 0;
+  const buyAgainPct = buyYes + buyNo > 0 ? Math.round((buyYes / (buyYes + buyNo)) * 100) : null;
+
+  // The user's own review (if it's on a loaded page) tells us whether it's locked.
+  const ownReview = allReviews.find((r) => r.user_is_owner) ?? null;
+  // Not reviewed → "Write"; reviewed & not locked → "Edit"; reviewed & locked → no button.
+  // If we haven't loaded their review yet, optimistically allow (the sheet re-checks lock).
+  const reviewLocked = ownReview?.locked ?? false;
+  const showReviewButton = !product?.user_reviewed || !reviewLocked;
 
   async function onRefresh() {
     setRefreshing(true);
@@ -427,13 +376,23 @@ export default function ProductDetailScreen() {
   }
 
   const ingredients = product?.ingredients ?? [];
-  const certifiers = product?.certifiers ?? [];
-  const otherHigh = product?.concerns?.other_high ?? [];
-  const heroImageUrl = product
-    ? (product.images.find(i => i.type === 'main') ?? product.images[0])?.url ?? null
-    : null;
+  const heroImageUrl = product ? product.image_url ?? product.images[0] ?? null : null;
 
-  const flaggedCount = ingredients.filter((i) => !!i.hazard_rating_display).length;
+  // Catalog's own count of high-severity ingredients.
+  const flaggedCount = product?.hazard_ingredients ?? 0;
+
+  // Per-category hazard breakdown, flagged (non-null) categories only.
+  const hazardCategories = product?.hazard_categories ?? null;
+  const flaggedCategories = hazardCategories
+    ? HAZARD_CATEGORY_META
+        .map((m) => ({ ...m, severity: hazardCategories[m.key] }))
+        .filter((c): c is typeof c & { severity: HazardSeverity } => c.severity != null)
+    : [];
+  // Chunk into rows of 2 for the grid.
+  const hazardRows: (typeof flaggedCategories)[] = [];
+  for (let i = 0; i < flaggedCategories.length; i += 2) {
+    hazardRows.push(flaggedCategories.slice(i, i + 2));
+  }
 
   return (
     <View className="flex-1 bg-gray-50">
@@ -484,21 +443,30 @@ export default function ProductDetailScreen() {
           }
         >
           {/* Hero */}
-          <View style={{ height: 260, backgroundColor: '#f3f4f6' }}>
+          <View style={{ height: HERO_H, backgroundColor: '#ffffff' }}>
             {heroImageUrl ? (
-              <Image source={{ uri: heroImageUrl }} style={StyleSheet.absoluteFill} resizeMode="contain" />
+              <Image source={{ uri: heroImageUrl }} style={{ position: 'absolute', top: HERO_PAD, bottom: HERO_PAD, left: 0, right: 0 }} resizeMode="contain" />
             ) : (
               <View className="flex-1 items-center justify-center">
                 <Ionicons name="cube-outline" size={72} color="#e5e7eb" />
               </View>
             )}
-            {/* Pseudo-gradient overlay */}
-            <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 120 }} pointerEvents="none">
-              <View style={{ flex: 1, backgroundColor: 'transparent' }} />
-              <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.10)' }} />
-              <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.28)' }} />
-              <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.48)' }} />
-            </View>
+            {/* Smooth bottom-up dark fade (transparent at top → soft black at bottom) */}
+            <Svg
+              width={SCREEN_W}
+              height={HERO_FADE_H}
+              style={{ position: 'absolute', bottom: 0, left: 0 }}
+              pointerEvents="none"
+            >
+              <Defs>
+                <SvgLinearGradient id="heroFade" x1="0" y1="0" x2="0" y2="1">
+                <Stop offset="0" stopColor="#000000" stopOpacity={0} />
+                <Stop offset="0.55" stopColor="#000000" stopOpacity={0.18} />
+                <Stop offset="1" stopColor="#000000" stopOpacity={0.62} />
+                </SvgLinearGradient>
+              </Defs>
+              <Rect x="0" y="0" width={SCREEN_W} height={HERO_FADE_H} fill="url(#heroFade)" />
+            </Svg>
             <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, paddingHorizontal: 16, paddingBottom: 14 }} pointerEvents="none">
               <Text style={{ fontSize: 11, letterSpacing: 1.5, color: 'rgba(255,255,255,0.75)', fontWeight: '600', textTransform: 'uppercase', marginBottom: 3 }}>
                 {product.brand_name}
@@ -521,77 +489,50 @@ export default function ProductDetailScreen() {
                 <AppText variant="caption" className="text-gray-600">{product.volume} {product.volume_units}</AppText>
               </View>
             ) : null}
-            {product.product_type ? (
-              <View className="rounded-full px-3 py-1.5 bg-white border border-gray-200">
-                <AppText variant="caption" className="text-gray-600">{product.product_type}</AppText>
+            {product.has_high_hazard ? (
+              <View className="flex-row items-center gap-1.5 rounded-full px-3 py-1.5 bg-white border border-red-200">
+                <Ionicons name="warning" size={12} color="#ef4444" />
+                <AppText variant="caption" style={{ color: '#dc2626' }}>High hazard</AppText>
               </View>
             ) : null}
-            {certifiers.map((cert) => (
-              <View key={cert.certifier_id} className="flex-row items-center gap-1.5 rounded-full px-3 py-1.5 bg-white border border-green-300">
-                <Ionicons name="checkmark-circle" size={12} color="#16a34a" />
-                <AppText variant="caption" style={{ color: '#15803d' }}>{cert.name}</AppText>
-              </View>
-            ))}
           </ScrollView>
 
           {/* Content cards */}
           <View className="px-4 pt-4 pb-8 gap-3">
 
-            {/* Safety Score card */}
+            {/* Risk level card */}
             <View className="bg-white rounded-3xl p-5 gap-4" style={styles.card}>
               <Text style={{ fontSize: 11, letterSpacing: 1.5, color: '#9ca3af', fontWeight: '600', textTransform: 'uppercase' }}>
-                Safety Score
+                Risk level
               </Text>
-              <View className="flex-row items-start justify-between">
-                <View className="gap-1">
-                  <View className="flex-row items-end gap-1">
-                    <Text style={{ fontSize: 52, fontWeight: '900', color: getScoreInfo(product.score).color, lineHeight: 56 }}>
-                      {product.score}
-                    </Text>
-                    <Text style={{ fontSize: 16, color: '#9ca3af', marginBottom: 6 }}>/10</Text>
-                  </View>
-                  <AppText variant="caption" className="text-gray-400">
-                    {flaggedCount} flagged ingredients
-                  </AppText>
-                </View>
-                <ScoreArc score={product.score} />
+              <View className="items-center gap-1 pt-1">
+                <RiskScore riskScore={product.risk_score} size="lg" />
+                <AppText variant="caption" className="text-gray-400">
+                  {flaggedCount} high risk {flaggedCount === 1 ? 'ingredient' : 'ingredients'}
+                </AppText>
               </View>
 
-              {/* 2×2 concern grid */}
-              <View className="gap-3">
-                <View className="flex-row gap-3">
-                  <ConcernCard field="cancer" level={product.concerns.cancer} />
-                  <ConcernCard field="dev_rep" level={product.concerns.dev_rep} />
-                </View>
-                <View className="flex-row gap-3">
-                  <ConcernCard field="allergy" level={product.concerns.allergy} />
-                  <ConcernCard field="use_res_level" level={product.concerns.use_res_level} />
-                </View>
-              </View>
-
-              {/* High concern areas */}
-              {otherHigh.length > 0 && (
-                <View className="gap-2">
-                  <View className="flex-row items-center gap-1.5">
-                    <Ionicons name="alert-circle" size={14} color="#ef4444" />
-                    <Text style={{ fontSize: 11, letterSpacing: 1.2, color: '#ef4444', fontWeight: '700', textTransform: 'uppercase' }}>
-                      High Concern Areas
-                    </Text>
-                  </View>
-                  <View className="flex-row flex-wrap gap-2">
-                    {otherHigh.map((item) => (
-                      <View key={item} className="rounded-full px-2.5 py-1 border border-red-200 bg-red-50">
-                        <AppText variant="caption" className="text-red-700">{item}</AppText>
-                      </View>
-                    ))}
-                  </View>
+              {/* Per-category hazard breakdown (flagged categories only) */}
+              {flaggedCategories.length > 0 && (
+                <View className="gap-3">
+                  <Text style={{ fontSize: 11, letterSpacing: 1.2, color: '#9ca3af', fontWeight: '700', textTransform: 'uppercase' }}>
+                    Hazard breakdown
+                  </Text>
+                  {hazardRows.map((row, i) => (
+                    <View key={i} className="flex-row gap-3">
+                      {row.map((c) => (
+                        <HazardCategoryCard key={c.key} label={c.label} icon={c.icon} severity={c.severity} />
+                      ))}
+                      {row.length === 1 && <View className="flex-1" />}
+                    </View>
+                  ))}
                 </View>
               )}
             </View>
 
             {/* Ingredients */}
             {ingredients.length > 0 ? (
-              <IngredientsSection ingredients={ingredients} flaggedCount={flaggedCount} />
+              <IngredientsSection ingredients={ingredients} />
             ) : product.label_ingredients ? (
               <CollapsibleCard title="Ingredients">
                 <AppText variant="caption" className="text-gray-600 leading-relaxed">
@@ -600,41 +541,93 @@ export default function ProductDetailScreen() {
               </CollapsibleCard>
             ) : null}
 
-            {/* About this product */}
-            {product.description ? (
-              <CollapsibleCard title="About this product">
-                <AppText variant="body" className="text-gray-600 leading-relaxed">
-                  {product.description}
-                </AppText>
-              </CollapsibleCard>
-            ) : null}
+            {/* "About this product" removed — `description` is no longer in the API. */}
 
             {/* Reviews */}
             <View className="bg-white rounded-3xl p-5 gap-4" style={styles.card}>
-              <View className="flex-row items-center justify-between">
-                <View className="gap-0.5">
-                  <AppText variant="heading">Reviews</AppText>
-                  {product.reviews_count > 0 && product.average_score !== null && (
-                    <View className="flex-row items-center gap-1.5 mt-0.5">
-                      <StarRating score={Math.round(Number(product.average_score))} size={13} />
-                      <AppText variant="caption" className="font-semibold text-gray-700">
-                        {Number(product.average_score).toFixed(1)}
-                      </AppText>
-                      <AppText variant="caption" className="text-gray-400">
-                        · {product.reviews_count} {product.reviews_count === 1 ? 'review' : 'reviews'}
-                      </AppText>
+              <AppText variant="heading">Reviews</AppText>
+
+              {product.reviews_count > 0 && product.average_score !== null ? (
+                <View className="gap-4">
+                  {/* 4.6  ★★★★★ (128 reviews)  /  👍 85% would buy again — all left-aligned */}
+                  <View className="flex-row items-center gap-3">
+                    <Text style={{ fontSize: 40, fontWeight: '900', color: '#111827', lineHeight: 42 }}>
+                      {Number(product.average_score).toFixed(1)}
+                    </Text>
+                    <View className="gap-1">
+                      <View className="flex-row items-center gap-2">
+                        <StarRating score={Math.round(Number(product.average_score))} size={16} />
+                        <AppText variant="caption" className="text-gray-400">
+                          ({product.reviews_count} {product.reviews_count === 1 ? 'review' : 'reviews'})
+                        </AppText>
+                      </View>
+                      {buyAgainPct !== null && (
+                        <View className="flex-row items-center gap-1">
+                          <Ionicons name="thumbs-up" size={13} color="#16a34a" />
+                          <AppText variant="caption" className="text-gray-600">
+                            <AppText variant="caption" style={{ fontWeight: '700', color: '#15803d' }}>{buyAgainPct}%</AppText>
+                            {' '}would buy again
+                          </AppText>
+                        </View>
+                      )}
                     </View>
+                  </View>
+
+                  {/* Write / Edit review */}
+                  {showReviewButton && (
+                    <Pressable
+                      onPress={() => setReviewSheetVisible(true)}
+                      className="flex-row items-center justify-center gap-2 rounded-2xl py-3.5 active:opacity-80"
+                      style={{ backgroundColor: '#7c3aed' }}
+                    >
+                      <Ionicons name={product.user_reviewed ? 'create-outline' : 'add'} size={16} color="white" />
+                      <AppText variant="label" style={{ color: 'white', fontWeight: '700' }}>
+                        {product.user_reviewed ? 'Edit review' : 'Write review'}
+                      </AppText>
+                    </Pressable>
+                  )}
+
+                  {/* Review highlights (per-category averages) */}
+                  <View className="gap-2.5">
+                    <Text style={{ fontSize: 11, letterSpacing: 1.2, color: '#9ca3af', fontWeight: '700', textTransform: 'uppercase' }}>
+                      Review highlights
+                    </Text>
+                    {[
+                      { label: 'Performance', value: product.avg_performance_score },
+                      { label: 'Ease of use', value: product.avg_ease_of_use_score },
+                      { label: 'Accuracy of claims', value: product.avg_accuracy_of_claims_score },
+                      { label: 'Value for money', value: product.avg_value_for_money_score },
+                      { label: 'Packaging', value: product.avg_packaging_score },
+                    ].map(({ label, value }) => (
+                      <View key={label} className="flex-row items-center justify-between">
+                        <AppText variant="caption" className="text-gray-600">{label}</AppText>
+                        <View className="flex-row items-center gap-2">
+                          <StarRating score={value !== null ? Math.round(Number(value)) : 0} size={13} />
+                          <AppText variant="caption" className="font-semibold text-gray-700" style={{ width: 24, textAlign: 'right' }}>
+                            {value !== null ? Number(value).toFixed(1) : '—'}
+                          </AppText>
+                        </View>
+                      </View>
+                    ))}
+                  </View>
+                </View>
+              ) : (
+                <View className="gap-3">
+                  <AppText variant="body" className="text-gray-500">
+                    No reviews yet. Be the first to review this product.
+                  </AppText>
+                  {showReviewButton && (
+                    <Pressable
+                      onPress={() => setReviewSheetVisible(true)}
+                      className="flex-row items-center justify-center gap-2 rounded-2xl py-3.5 active:opacity-80"
+                      style={{ backgroundColor: '#7c3aed' }}
+                    >
+                      <Ionicons name="add" size={16} color="white" />
+                      <AppText variant="label" style={{ color: 'white', fontWeight: '700' }}>Write review</AppText>
+                    </Pressable>
                   )}
                 </View>
-                <Pressable
-                  onPress={() => setReviewSheetVisible(true)}
-                  className="flex-row items-center gap-1.5 rounded-full px-4 py-2.5 active:opacity-80"
-                  style={{ backgroundColor: '#7c3aed' }}
-                >
-                  <Ionicons name="add" size={14} color="white" />
-                  <AppText variant="caption" style={{ color: 'white', fontWeight: '600' }}>Add Review</AppText>
-                </Pressable>
-              </View>
+              )}
 
               {allReviews.length > 0 && (
                 <View className="gap-4">
@@ -667,17 +660,6 @@ export default function ProductDetailScreen() {
                 </Pressable>
               )}
 
-              {!product.user_reviewed && (
-                <Pressable
-                  onPress={() => setReviewSheetVisible(true)}
-                  className="border-2 border-dashed border-gray-200 rounded-2xl py-4 items-center gap-1.5 active:bg-gray-50"
-                >
-                  <Ionicons name="add-circle-outline" size={20} color="#9ca3af" />
-                  <AppText variant="caption" className="text-gray-400 font-medium">
-                    Share your experience
-                  </AppText>
-                </Pressable>
-              )}
             </View>
 
             <AppText variant="caption" className="text-gray-400 text-center leading-relaxed px-2">

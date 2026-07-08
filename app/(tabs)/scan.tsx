@@ -6,6 +6,7 @@ import { CameraView, useCameraPermissions } from 'expo-camera';
 import type { BarcodeScanningResult } from 'expo-camera';
 import { AppButton, AppScreen, AppText } from '@/components/ui';
 import { productsApi } from '@/features/products/api';
+import { findExactGtinMatch } from '@/features/products/searchMapper';
 
 // Once you have the image: replace <ScanGraphic /> below with:
 // <Image source={require('../../assets/scan-illustration.png')} style={{ width: 260, height: 200 }} resizeMode="contain" />
@@ -64,11 +65,11 @@ function ViewfinderOverlay({ onClose }: { onClose: () => void }) {
 interface CameraScannerProps {
   onClose: () => void;
   onProductFound: (productId: number) => void;
-  onPrefix: (code: string) => void;
+  onResults: (code: string) => void;
   onNotFound: (code: string) => void;
 }
 
-function CameraScanner({ onClose, onProductFound, onPrefix, onNotFound }: CameraScannerProps) {
+function CameraScanner({ onClose, onProductFound, onResults, onNotFound }: CameraScannerProps) {
   const [permission, requestPermission] = useCameraPermissions();
   const [searching, setSearching] = useState(false);
   const scanLock = useRef(false);
@@ -99,11 +100,14 @@ function CameraScanner({ onClose, onProductFound, onPrefix, onNotFound }: Camera
     setSearching(true);
 
     try {
-      const response = await productsApi.searchByEan(data);
-      if (response !== null && response.match_type === 'exact') {
-        onProductFound(response.results[0].product_id);
-      } else if (response !== null && response.match_type === 'prefix') {
-        onPrefix(data);
+      const response = await productsApi.search({ ean: data, limit: 10 });
+      if (response !== null && response.products.length > 0) {
+        const exact = findExactGtinMatch(response.products, data);
+        if (exact) {
+          onProductFound(exact.product_id);
+        } else {
+          onResults(data);
+        }
       } else {
         onNotFound(data);
       }
@@ -151,7 +155,7 @@ export default function ScanScreen() {
           setCameraActive(false);
           router.push(`/product/${id}` as never);
         }}
-        onPrefix={(code) => {
+        onResults={(code) => {
           setCameraActive(false);
           router.push({ pathname: '/search/ean', params: { code } } as never);
         }}

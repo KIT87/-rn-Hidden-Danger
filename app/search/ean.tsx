@@ -7,7 +7,10 @@ import { useMutation } from '@tanstack/react-query';
 import { AppButton, AppHeader, AppInput, AppText } from '@/components/ui';
 import { ProductCard } from '@/components/product';
 import { productsApi } from '@/features/products/api';
+import { catalogToSummary, findExactGtinMatch } from '@/features/products/searchMapper';
 import type { ProductSummary } from '@/features/products/types';
+
+const SEARCH_LIMIT = 10;
 
 export default function EanSearchScreen() {
   const router = useRouter();
@@ -15,28 +18,28 @@ export default function EanSearchScreen() {
   const [ean, setEan] = useState(code ?? '');
   const [searchedEan, setSearchedEan] = useState('');
   const [results, setResults] = useState<ProductSummary[]>([]);
-  const [total, setTotal] = useState<number | null>(null);
-  const [isPrefix, setIsPrefix] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
   const [searched, setSearched] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
 
   const { mutate, isPending } = useMutation({
-    mutationFn: (value: string) => productsApi.searchByEan(value),
-    onSuccess: (data) => {
-      if (data === null) {
+    mutationFn: (value: string) => productsApi.search({ ean: value, limit: SEARCH_LIMIT }),
+    onSuccess: (data, value) => {
+      if (!data || data.products.length === 0) {
         setResults([]);
-        setTotal(null);
-        setIsPrefix(false);
+        setHasMore(false);
         setSearched(true);
         return;
       }
-      if (data.match_type === 'exact') {
-        router.replace(`/product/${data.results[0].product_id}` as never);
+      // Exact GTIN hit → jump straight to the product (replace so back doesn't
+      // return to this loading screen).
+      const exact = findExactGtinMatch(data.products, value);
+      if (exact) {
+        router.replace(`/product/${exact.product_id}` as never);
         return;
       }
-      setResults(data.results);
-      setTotal(data.total);
-      setIsPrefix(true);
+      setResults(data.products.map(catalogToSummary));
+      setHasMore(data.truncated);
       setSearched(true);
     },
   });
@@ -53,19 +56,23 @@ export default function EanSearchScreen() {
     const trimmed = ean.trim();
     setSearchedEan(trimmed);
     setResults([]);
-    setTotal(null);
-    setIsPrefix(false);
+    setHasMore(false);
     setSearched(false);
     mutate(trimmed);
   }
 
   async function handleLoadMore() {
-    if (loadingMore || !isPrefix) return;
+    if (loadingMore || !hasMore) return;
     setLoadingMore(true);
     try {
-      const data = await productsApi.searchByEan(searchedEan, results.length);
-      if (data && data.match_type === 'prefix') {
-        setResults((prev) => [...prev, ...data.results]);
+      const data = await productsApi.search({
+        ean: searchedEan,
+        limit: SEARCH_LIMIT,
+        offset: results.length,
+      });
+      if (data) {
+        setResults((prev) => [...prev, ...data.products.map(catalogToSummary)]);
+        setHasMore(data.truncated);
       }
     } catch {
       // network errors surfaced globally
@@ -73,8 +80,6 @@ export default function EanSearchScreen() {
       setLoadingMore(false);
     }
   }
-
-  const hasMore = isPrefix && total !== null && results.length < total;
 
   return (
     <SafeAreaView className="flex-1 bg-gray-50">
@@ -115,12 +120,12 @@ export default function EanSearchScreen() {
         {searched && !isPending && (
           <View className="gap-3">
 
-            {/* Similar products banner */}
-            {isPrefix && results.length > 0 && (
+            {/* Similar products banner (shown whenever we fall back to a list) */}
+            {results.length > 0 && (
               <View className="flex-row items-start gap-2.5 bg-amber-50 border border-amber-100 rounded-2xl px-4 py-3">
                 <Ionicons name="information-circle" size={18} color="#d97706" style={{ marginTop: 1 }} />
                 <AppText variant="caption" className="flex-1 text-amber-700">
-                  No exact match found. Showing similar products from the same brand.
+                  No exact match found. Showing similar products.
                 </AppText>
               </View>
             )}
@@ -147,9 +152,8 @@ export default function EanSearchScreen() {
             ) : (
               <>
                 <AppText variant="caption" className="text-gray-400">
-                  {total !== null
-                    ? `${total} similar product${total !== 1 ? 's' : ''}`
-                    : `${results.length} result${results.length !== 1 ? 's' : ''} found`}
+                  {results.length} similar product{results.length !== 1 ? 's' : ''}
+                  {hasMore ? '+' : ''}
                 </AppText>
 
                 <View className="flex-row flex-wrap gap-3">
@@ -174,7 +178,7 @@ export default function EanSearchScreen() {
                       <>
                         <Ionicons name="chevron-down" size={15} color="#7c3aed" />
                         <AppText variant="caption" style={{ color: '#7c3aed', fontWeight: '600' }}>
-                          Load more · {total! - results.length} remaining
+                          Load more
                         </AppText>
                       </>
                     )}

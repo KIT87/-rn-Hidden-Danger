@@ -4,7 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { AppScreen, AppText } from '@/components/ui';
 import { AppToast, useToast } from '@/components/ui/AppToast';
-import { ScoreBadge } from '@/components/product/ScoreBadge';
+import { RiskScore } from '@/components/product/RiskScore';
 import { useTopPicks } from '@/features/products/useTopPicks';
 import { useRemovePick } from '@/features/products/useRemovePick';
 import type { ProductSummary } from '@/features/products/types';
@@ -90,9 +90,9 @@ function PickRow({ product, onPress, onRemove }: PickRowProps) {
       onPress={onPress}
       className="flex-row items-center gap-3 bg-white rounded-2xl border border-gray-100 p-3 active:opacity-75"
     >
-      {product.images[0]?.url ? (
+      {product.image_url ?? product.images[0] ? (
         <Image
-          source={{ uri: product.images[0].url }}
+          source={{ uri: product.image_url ?? product.images[0] }}
           style={{ width: 64, height: 64, borderRadius: 12, backgroundColor: '#f9fafb' }}
           resizeMode="contain"
         />
@@ -108,7 +108,7 @@ function PickRow({ product, onPress, onRemove }: PickRowProps) {
           {product.brand_name}
         </AppText>
         <View className="flex-row items-center gap-2">
-          <ScoreBadge score={product.score} showLabel={false} />
+          <RiskScore riskScore={product.risk_score} size="sm" />
           <View className="flex-row items-center gap-1">
             <MaterialCommunityIcons name="crown" size={11} color="#f59e0b" />
             <AppText variant="caption" className="text-gray-400">{product.picks_count}</AppText>

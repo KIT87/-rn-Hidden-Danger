@@ -1,36 +1,43 @@
 export type ConcernLevel = 'LOW' | 'MODERATE' | 'HIGH' | null;
 
-export interface Concerns {
-  cancer: ConcernLevel;
-  dev_rep: ConcernLevel;
-  allergy: ConcernLevel;
-  use_res_level: ConcernLevel;
-}
+// Product-level concerns are not provided by the API right now — commented out
+// until they're reinstated. See also ProductSummary.concerns / ProductDetail.concerns.
+// export interface Concerns {
+//   cancer: ConcernLevel;
+//   dev_rep: ConcernLevel;
+//   allergy: ConcernLevel;
+//   use_res_level: ConcernLevel;
+// }
 
-export interface DetailedConcerns extends Concerns {
-  other_low: string[];
-  other_moderate: string[];
-  other_high: string[];
-}
+// export interface DetailedConcerns extends Concerns {
+//   other_low: string[];
+//   other_moderate: string[];
+//   other_high: string[];
+// }
 
-export interface ProductImage {
-  url: string;
-  source: 'a' | 'b' | 'c';
-  type: 'main' | 'mobile';
-}
+export type HazardLevel = 'HIGH' | 'MODERATE' | 'LOW' | 'UNKNOWN';
 
+// Catalog hazard severity: 1 (low) · 2 (moderate) · 3 (high). `null` = no warnings.
+export type HazardSeverity = 1 | 2 | 3;
+
+// Shared "Product summary shape" returned by every product list endpoint
+// (random, featured, best_reviewed, recently_viewed, picks) and embedded in
+// ProductDetail. `images` is a plain list of URLs; `image_url` is the primary.
 export interface ProductSummary {
   product_id: number;
   name: string;
   brand_name: string;
-  score: number;
+  // Risk level: 1 = low, 2 = moderate, 3 = high (higher = more risk); null = unknown.
+  risk_score: HazardSeverity | null;
   volume: number | null;
   volume_units: string | null;
-  images: ProductImage[];
+  image_url: string | null;
+  images: string[];
+  has_high_hazard: boolean;
+  hazard_ingredients: number;
   picks_count: number;
   reviews_count: number;
   average_score: number | null;
-  concerns: Concerns;
 }
 
 export interface PickResponse {
@@ -38,11 +45,61 @@ export interface PickResponse {
   user_picked: boolean;
 }
 
-export interface EanSearchResult {
-  match_type: 'exact' | 'prefix';
-  results: ProductSummary[];
-  total: number;
-  page: number;
+// ─── Top rated (GET products/top_rated) ────────────────────────────────────────
+// Lighter, review-oriented shape (not the full ProductSummary): no images[]/hazard
+// fields; adds average_score, reviews_count and a top review highlight.
+
+export interface ReviewHighlight {
+  excerpt: string;
+  overall_score: number;
+  helpful_count: number;
+  user_nickname: string;
+  created_at: string;
+}
+
+export interface TopRatedProduct {
+  product_id: number;
+  name: string;
+  brand_name: string;
+  image_url: string | null;
+  risk_score: HazardSeverity | null; // risk level 1–3, null = unknown
+  average_score: number | null;
+  reviews_count: number;
+  review_highlight: ReviewHighlight | null;
+}
+
+// ─── Catalog search (EXPO_PUBLIC_SEARCH_API_URL) ───────────────────────────────
+
+export interface CatalogSearchRequest {
+  name?: string;
+  ingredients?: string[];
+  ean?: string;
+  ingredients_match?: 'all' | 'exact' | 'any';
+  limit?: number;
+  offset?: number;
+  include_images?: boolean;
+}
+
+export interface CatalogSearchProduct {
+  product_id: number;
+  canonical_name: string;
+  canonical_brand: string | null;
+  primary_source: number;
+  n_variants: number;
+  n_sources: number;
+  gtins: string[] | null;
+  has_high_hazard: boolean;
+  // Search endpoint keeps the field NAME `max_hazard_score` but its values are now
+  // the catalog severity 1–3 (or null), aliased from `max_severity` server-side.
+  max_hazard_score: HazardSeverity | null;
+  image_url: string | null;
+  matched_on: string[];
+}
+
+export interface CatalogSearchResponse {
+  count: number;
+  truncated: boolean;
+  products: CatalogSearchProduct[];
 }
 
 export interface TopPicksResponse {
@@ -52,51 +109,36 @@ export interface TopPicksResponse {
   picks: ProductSummary[];
 }
 
-export interface IngredientConcern {
-  source: 'a' | 'b' | 'c';
-  concern_name: string;
-  level: string;
-  description: string | null;
-}
-
 export interface Ingredient {
   ingredient_id: number;
   name: string;
   position: number;
-  active_ingredient: boolean;
-  trace_ingredient: boolean;
-  hazard_rating_display: string | null;
-  concerns: IngredientConcern[];
+  // Unified hazard level aggregated across warning sources (provenance not exposed).
+  hazard_level: HazardLevel;
 }
 
-export interface Certifier {
-  certifier_id: number;
-  name: string;
-  description: string;
-  image_url: string;
-  jurisdiction: string | null;
-  oca_rating: string | null;
-  bonus_points: number | null;
-  oca_comments: string | null;
+// Per-category hazard severity breakdown (product detail only). Each value is a
+// severity 1–3, or null when the product has no known concern in that category.
+export interface HazardCategories {
+  allergy: HazardSeverity | null;
+  irritation: HazardSeverity | null;
+  cancer: HazardSeverity | null;
+  endocrine: HazardSeverity | null;
+  environmental: HazardSeverity | null;
+  other: HazardSeverity | null;
 }
 
-export interface ProductDetail extends Omit<ProductSummary, 'concerns'> {
-  picks_count: number;
+export interface ProductDetail extends ProductSummary {
   user_picked: boolean;
-  product_type: string;
-  description: string | null;
-  internal_comments: string | null;
-  source_name: string;
+  user_reviewed: boolean;
+  featured: boolean;
+  hazard_categories: HazardCategories | null;
   label_ingredients: string | null;
   avg_performance_score: number | null;
   avg_ease_of_use_score: number | null;
   avg_accuracy_of_claims_score: number | null;
   avg_value_for_money_score: number | null;
   avg_packaging_score: number | null;
-  user_reviewed: boolean;
-  categories: string[];
-  concerns: DetailedConcerns;
-  certifiers: Certifier[];
   ingredients: Ingredient[];
 }
 
@@ -145,16 +187,20 @@ export interface Review {
 
 export interface MyReview extends Review {
   product_name: string;
-  product_images: ProductImage[];
+  product_images: string[];
 }
 
 export interface ReviewsResponse {
   product_id: number;
   product_name: string;
-  images: ProductImage[];
+  images: string[];
   page: number;
   total_pages: number;
   total_count: number;
+  // Counts of visible reviews answering buy_again yes/no across ALL pages
+  // (not_sure/unset excluded).
+  buy_again_yes: number;
+  buy_again_no: number;
   reviews: Review[];
 }
 

@@ -16,6 +16,31 @@ function avatarColor(nickname: string | null) {
   return AVATAR_COLORS[sum % AVATAR_COLORS.length];
 }
 
+// Relative "how long ago" the review was posted.
+function timeAgo(iso: string): string {
+  const then = new Date(iso).getTime();
+  if (Number.isNaN(then)) return '';
+  const secs = Math.max(0, Math.floor((Date.now() - then) / 1000));
+  const units: [number, string][] = [
+    [60, 'second'],
+    [60, 'minute'],
+    [24, 'hour'],
+    [7, 'day'],
+    [4.345, 'week'],
+    [12, 'month'],
+    [Number.POSITIVE_INFINITY, 'year'],
+  ];
+  let value = secs;
+  let unit = 'second';
+  for (const [size, name] of units) {
+    if (value < size) { unit = name; break; }
+    value = Math.floor(value / size);
+    unit = name;
+  }
+  if (unit === 'second' && value < 30) return 'just now';
+  return `${value} ${unit}${value === 1 ? '' : 's'} ago`;
+}
+
 const USAGE_LABELS: Record<UsageDuration, string> = {
   sample_one:       'Tried a sample',
   one_week:         'Used for one week',
@@ -68,7 +93,12 @@ export function ReviewCard({ review, onReport }: ReviewCardProps) {
               {USAGE_LABELS[review.usage_duration]}
             </AppText>
           </View>
-          <StarRating score={review.overall_score} size={14} />
+          <View className="items-end gap-0.5 shrink-0">
+            <StarRating score={review.overall_score} size={14} />
+            <AppText variant="caption" className="text-gray-400" style={{ fontSize: 11 }}>
+              {timeAgo(review.created_at)}
+            </AppText>
+          </View>
         </View>
 
         {/* Review text */}

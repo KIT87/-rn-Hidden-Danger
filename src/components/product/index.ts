@@ -1,3 +1,4 @@
 export { ProductCard } from './ProductCard';
-export { ScoreBadge } from './ScoreBadge';
+export { RiskScore } from './RiskScore';
 export { SearchHistoryRow } from './SearchHistoryRow';
+export { TopRatedRow } from './TopRatedRow';

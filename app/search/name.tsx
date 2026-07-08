@@ -7,30 +7,65 @@ import { useMutation } from '@tanstack/react-query';
 import { AppButton, AppHeader, AppInput, AppText } from '@/components/ui';
 import { ProductCard } from '@/components/product';
 import { productsApi } from '@/features/products/api';
+import { catalogToSummary } from '@/features/products/searchMapper';
 import type { ProductSummary } from '@/features/products/types';
+
+const SEARCH_LIMIT = 10;
 
 export default function NameSearchScreen() {
   const router = useRouter();
   const { query: initialQuery } = useLocalSearchParams<{ query?: string }>();
   const [query, setQuery] = useState(initialQuery ?? '');
+  const [searchedQuery, setSearchedQuery] = useState('');
   const [results, setResults] = useState<ProductSummary[] | null>(null);
+  const [hasMore, setHasMore] = useState(false);
   const [searched, setSearched] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
 
   const { mutate, isPending } = useMutation({
-    mutationFn: (value: string) => productsApi.searchByName(value),
+    mutationFn: (value: string) => productsApi.search({ name: value, limit: SEARCH_LIMIT }),
     onSuccess: (data) => {
-      setResults(data ?? []);
+      setResults(data ? data.products.map(catalogToSummary) : []);
+      setHasMore(data?.truncated ?? false);
       setSearched(true);
     },
   });
 
   useEffect(() => {
-    if (initialQuery) mutate(initialQuery);
+    if (initialQuery) {
+      setSearchedQuery(initialQuery);
+      mutate(initialQuery);
+    }
   }, []);
 
   function handleSearch() {
     if (!query.trim()) return;
-    mutate(query.trim());
+    const trimmed = query.trim();
+    setSearchedQuery(trimmed);
+    setResults(null);
+    setHasMore(false);
+    setSearched(false);
+    mutate(trimmed);
+  }
+
+  async function handleLoadMore() {
+    if (loadingMore || !hasMore || !results) return;
+    setLoadingMore(true);
+    try {
+      const data = await productsApi.search({
+        name: searchedQuery,
+        limit: SEARCH_LIMIT,
+        offset: results.length,
+      });
+      if (data) {
+        setResults((prev) => [...(prev ?? []), ...data.products.map(catalogToSummary)]);
+        setHasMore(data.truncated);
+      }
+    } catch {
+      // network errors surfaced globally
+    } finally {
+      setLoadingMore(false);
+    }
   }
 
   return (
@@ -81,7 +116,7 @@ export default function NameSearchScreen() {
             ) : (
               <>
                 <AppText variant="caption" className="text-gray-400">
-                  {results.length} result{results.length !== 1 ? 's' : ''} found
+                  {results.length} result{results.length !== 1 ? 's' : ''}{hasMore ? '+' : ''} found
                 </AppText>
                 <View className="flex-row flex-wrap gap-3">
                   {results.map((p) => (
@@ -92,6 +127,25 @@ export default function NameSearchScreen() {
                     />
                   ))}
                 </View>
+
+                {hasMore && (
+                  <Pressable
+                    onPress={handleLoadMore}
+                    disabled={loadingMore}
+                    className="flex-row items-center justify-center gap-2 bg-white border border-gray-200 rounded-2xl py-3.5 active:bg-gray-50"
+                  >
+                    {loadingMore ? (
+                      <ActivityIndicator size="small" color="#7c3aed" />
+                    ) : (
+                      <>
+                        <Ionicons name="chevron-down" size={15} color="#7c3aed" />
+                        <AppText variant="caption" style={{ color: '#7c3aed', fontWeight: '600' }}>
+                          Load more
+                        </AppText>
+                      </>
+                    )}
+                  </Pressable>
+                )}
               </>
             )}
           </View>
