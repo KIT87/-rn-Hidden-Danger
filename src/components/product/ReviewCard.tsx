@@ -1,9 +1,10 @@
+import { useState } from 'react';
 import { Image, Pressable, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { AppText } from '@/components/ui';
 import { StarRating } from './StarRating';
 import { timeAgo } from '@/utils/time';
-import type { Review, UsageDuration } from '@/features/products/types';
+import type { PurchaseSource, Review, UsageAmount, UsageDuration } from '@/features/products/types';
 
 interface ReviewCardProps {
   review: Review;
@@ -24,6 +25,25 @@ const USAGE_LABELS: Record<UsageDuration, string> = {
   one_month:        'Used for one month',
   several_months:   'Used for several months',
   one_year_plus:    'Used for over a year',
+};
+
+const USAGE_AMOUNT_LABELS: Record<UsageAmount, string> = {
+  first_package:     'First package',
+  finished_one:      'Finished one',
+  finished_multiple: 'Finished multiple',
+  sample_one:        'Sample (one use)',
+  multiple_samples:  'Multiple samples',
+};
+
+const PURCHASE_SOURCE_LABELS: Record<PurchaseSource, string> = {
+  brand_testing:  'Received from brand',
+  online_store:   'Online store',
+  physical_store: 'Physical store',
+  pharmacy:       'Pharmacy',
+  marketplace:    'Marketplace',
+  perfume_store:  'Perfume store',
+  supermarket:    'Supermarket',
+  gift:           'Received as gift',
 };
 
 const DETAIL_SCORES = [
@@ -58,7 +78,21 @@ function ScoreBar({ label, value }: { label: string; value: number }) {
   );
 }
 
+// Labeled detail row for the "See more" section.
+function DetailField({ label, value }: { label: string; value?: string | null }) {
+  if (!value) return null;
+  return (
+    <View className="gap-0.5">
+      <AppText variant="caption" className="text-white/45" style={{ fontSize: 10, letterSpacing: 0.5, textTransform: 'uppercase', fontWeight: '700' }}>
+        {label}
+      </AppText>
+      <AppText variant="caption" className="text-white/85">{value}</AppText>
+    </View>
+  );
+}
+
 export function ReviewCard({ review, onReport }: ReviewCardProps) {
+  const [expanded, setExpanded] = useState(false);
   const nickname = review.user_nickname ?? 'Anonymous';
   const initial = nickname.charAt(0).toUpperCase();
   const color = avatarColor(nickname);
@@ -110,16 +144,9 @@ export function ReviewCard({ review, onReport }: ReviewCardProps) {
 
         {/* Buy again */}
         {review.buy_again === 'yes' && (
-          <View className="flex-row items-center gap-2 flex-wrap">
-            <View className="flex-row items-center gap-1 rounded-full px-2.5 py-1" style={{ backgroundColor: 'rgba(34,197,94,0.22)' }}>
-              <Ionicons name="checkmark-circle" size={13} color="#4ade80" />
-              <AppText variant="caption" style={{ color: '#4ade80', fontWeight: '700' }}>WOULD BUY AGAIN</AppText>
-            </View>
-            {review.advantages ? (
-              <View className="rounded-full px-2.5 py-1" style={{ backgroundColor: 'rgba(255,255,255,0.12)' }}>
-                <AppText variant="caption" className="text-white/70" numberOfLines={1}>{review.advantages}</AppText>
-              </View>
-            ) : null}
+          <View className="flex-row items-center gap-1 self-start rounded-full px-2.5 py-1" style={{ backgroundColor: 'rgba(34,197,94,0.22)' }}>
+            <Ionicons name="checkmark-circle" size={13} color="#4ade80" />
+            <AppText variant="caption" style={{ color: '#4ade80', fontWeight: '700' }}>WOULD BUY AGAIN</AppText>
           </View>
         )}
         {review.buy_again === 'no' && (
@@ -157,6 +184,29 @@ export function ReviewCard({ review, onReport }: ReviewCardProps) {
             <ScoreBar key={key} label={label} value={review[key] as number} />
           ))}
         </View>
+
+        {/* See more / less */}
+        <Pressable onPress={() => setExpanded((v) => !v)} hitSlop={6} className="flex-row items-center gap-1 self-start active:opacity-60">
+          <AppText variant="caption" className="text-white/80 font-semibold">
+            {expanded ? 'See less' : 'See more'}
+          </AppText>
+          <Ionicons name={expanded ? 'chevron-up' : 'chevron-down'} size={13} color="rgba(255,255,255,0.8)" />
+        </Pressable>
+
+        {expanded && (
+          <View className="gap-3 pt-1" style={{ borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.10)', paddingTop: 12 }}>
+            <DetailField label="Advantages" value={review.advantages} />
+            <DetailField label="Disadvantages" value={review.disadvantages} />
+            <DetailField label="How much used" value={USAGE_AMOUNT_LABELS[review.usage_amount]} />
+            <DetailField label="Where bought" value={PURCHASE_SOURCE_LABELS[review.purchase_source]} />
+            <View className="flex-row items-center gap-1.5">
+              <Ionicons name="thumbs-up-outline" size={13} color="rgba(255,255,255,0.55)" />
+              <AppText variant="caption" className="text-white/55">
+                {review.helpful_count} {review.helpful_count === 1 ? 'person' : 'people'} found this helpful
+              </AppText>
+            </View>
+          </View>
+        )}
       </View>
     </View>
   );

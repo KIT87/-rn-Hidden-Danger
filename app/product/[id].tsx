@@ -83,11 +83,12 @@ const HAZARD_CATEGORY_META: { key: keyof HazardCategories; label: string; icon: 
   { key: 'other',         label: 'Other',         icon: 'alert-circle-outline' },
 ];
 
-const SEVERITY_LABEL: Record<HazardSeverity, string> = { 1: 'LOW', 2: 'MODERATE', 3: 'HIGH' };
-const SEVERITY_COLOR: Record<HazardSeverity, string> = {
-  1: HAZARD_COLORS.LOW,
-  2: HAZARD_COLORS.MODERATE,
-  3: HAZARD_COLORS.HIGH,
+// Each severity tints the whole card + border so it stays legible on the purple
+// gradient (a faint translucent-white fill made red/amber text wash out).
+const SEVERITY_STYLE: Record<HazardSeverity, { label: string; solid: string; cardBg: string; border: string; onSolid: string }> = {
+  1: { label: 'LOW',      solid: '#22c55e', cardBg: 'rgba(34,197,94,0.20)',  border: 'rgba(74,222,128,0.60)',  onSolid: '#06230f' },
+  2: { label: 'MODERATE', solid: '#f59e0b', cardBg: 'rgba(245,158,11,0.22)', border: 'rgba(251,191,36,0.65)',  onSolid: '#3a2900' },
+  3: { label: 'HIGH',     solid: '#ef4444', cardBg: 'rgba(239,68,68,0.30)',  border: 'rgba(248,113,113,0.85)', onSolid: '#ffffff' },
 };
 
 function HazardCategoryCard({ label, icon, severity }: {
@@ -95,14 +96,14 @@ function HazardCategoryCard({ label, icon, severity }: {
   icon: IconName;
   severity: HazardSeverity;
 }) {
-  const color = SEVERITY_COLOR[severity];
+  const s = SEVERITY_STYLE[severity];
   return (
-    <View className="flex-1 rounded-2xl p-3.5 gap-3" style={{ backgroundColor: 'rgba(255,255,255,0.10)', borderWidth: 1, borderColor: GLASS.cardBorder }}>
+    <View className="flex-1 rounded-2xl p-3.5 gap-3" style={{ backgroundColor: s.cardBg, borderWidth: 1.5, borderColor: s.border }}>
       <View className="flex-row items-center justify-between">
-        <Ionicons name={icon} size={18} color={color} />
-        <View className="rounded-full px-2 py-0.5" style={{ backgroundColor: color + '2e' }}>
-          <AppText variant="caption" style={{ color, fontWeight: '700', fontSize: 10, letterSpacing: 0.5 }}>
-            {SEVERITY_LABEL[severity]}
+        <Ionicons name={icon} size={18} color="#ffffff" />
+        <View className="rounded-full px-2 py-0.5" style={{ backgroundColor: s.solid }}>
+          <AppText variant="caption" style={{ color: s.onSolid, fontWeight: '800', fontSize: 10, letterSpacing: 0.5 }}>
+            {s.label}
           </AppText>
         </View>
       </View>
@@ -352,6 +353,12 @@ export default function ProductDetailScreen() {
   // Catalog's own count of high-severity ingredients.
   const flaggedCount = product?.hazard_ingredients ?? 0;
 
+  // Tint the inner risk-meter block by the product's overall risk (neutral glass when unknown).
+  const riskSeverity = product?.risk_score ?? null;
+  const riskMeterStyle = riskSeverity != null
+    ? { backgroundColor: SEVERITY_STYLE[riskSeverity].cardBg, borderWidth: 1.5, borderColor: SEVERITY_STYLE[riskSeverity].border }
+    : { backgroundColor: 'rgba(255,255,255,0.10)', borderWidth: 1, borderColor: GLASS.cardBorder };
+
   // Per-category hazard breakdown, flagged (non-null) categories only.
   const hazardCategories = product?.hazard_categories ?? null;
   const flaggedCategories = hazardCategories
@@ -486,9 +493,9 @@ export default function ProductDetailScreen() {
               <Text style={{ fontSize: 11, letterSpacing: 1.5, color: 'rgba(255,255,255,0.6)', fontWeight: '700', textTransform: 'uppercase' }}>
                 Risk level
               </Text>
-              <View className="gap-2 pt-1">
+              <View className="rounded-2xl p-4 gap-2" style={riskMeterStyle}>
                 <RiskScore riskScore={product.risk_score} size="bar" />
-                <AppText variant="caption" className="text-white/55 text-center">
+                <AppText variant="caption" className="text-white/70 text-center">
                   {flaggedCount} high risk {flaggedCount === 1 ? 'ingredient' : 'ingredients'}
                 </AppText>
               </View>
@@ -551,12 +558,6 @@ export default function ProductDetailScreen() {
                     )}
                   </View>
 
-                  {/* Write / Edit review */}
-                  {showReviewButton && writeButton(
-                    product.user_reviewed ? 'Edit review' : 'Write a review',
-                    product.user_reviewed ? 'create-outline' : 'add',
-                  )}
-
                   {/* Review highlights (per-category averages) */}
                   <View className="gap-2.5">
                     <Text style={{ fontSize: 11, letterSpacing: 1.2, color: 'rgba(255,255,255,0.6)', fontWeight: '700', textTransform: 'uppercase' }}>
@@ -580,6 +581,12 @@ export default function ProductDetailScreen() {
                       </View>
                     ))}
                   </View>
+
+                  {/* Write / Edit review */}
+                  {showReviewButton && writeButton(
+                    product.user_reviewed ? 'Edit review' : 'Write a review',
+                    product.user_reviewed ? 'create-outline' : 'add',
+                  )}
                 </View>
               ) : (
                 <View className="gap-3">

@@ -142,6 +142,18 @@ export interface ProductDetail extends ProductSummary {
   ingredients: Ingredient[];
 }
 
+// Static overview/marketing numbers (GET stats). Values are backend constants.
+export interface AppStats {
+  products: number;
+  brands: number;
+  scans_performed: number;
+  cancer_risk_products: number;
+  allergy_risk_products: number;
+  irritation_risk_products: number;
+  endocrine_risk_products: number;
+  other_risk_products: number;
+}
+
 export interface SearchHistoryItem {
   query_type: 'ean' | 'name';
   query: string;

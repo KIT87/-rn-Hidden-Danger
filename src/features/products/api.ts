@@ -1,5 +1,6 @@
 import { api, searchApi } from '@/api/client';
 import type {
+  AppStats,
   CatalogSearchRequest,
   CatalogSearchResponse,
   HelpfulResponse,
@@ -27,6 +28,7 @@ export const productsApi = {
   search: (body: CatalogSearchRequest) =>
     searchApi.search<CatalogSearchResponse>({ include_images: true, ...body }),
   history: () => api.get<SearchHistoryItem[]>('search/history'),
+  stats: () => api.get<AppStats>('stats'),
   picks: () => api.get<TopPicksResponse>('picks'),
   addPick: (id: number) => api.post<PickResponse>(`products/${id}/pick`),
   removePick: (id: number) => api.delete<PickResponse>(`products/${id}/pick`),

@@ -10,6 +10,7 @@ import { queryClient } from '@/lib/query/client';
 import { AuthProvider, useAuth } from '@/features/auth/AuthContext';
 import { setNetworkErrorHandler, setUnauthorizedHandler } from '@/api/client';
 import { AppToast, useToast } from '@/components/ui/AppToast';
+import { AppIntro } from '@/components/AppIntro';
 
 // gluestack-ui v1 internally uses the deprecated RN SafeAreaView; our code uses react-native-safe-area-context
 LogBox.ignoreLogs(['SafeAreaView has been deprecated']);
@@ -60,6 +61,7 @@ export default function RootLayout() {
           <AuthProvider>
             <AuthGuard />
             <Stack screenOptions={{ headerShown: false }} />
+            <AppIntro />
           </AuthProvider>
         </QueryClientProvider>
       </GluestackUIProvider>
