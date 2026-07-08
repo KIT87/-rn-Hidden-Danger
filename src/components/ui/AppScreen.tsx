@@ -1,14 +1,17 @@
 import { KeyboardAvoidingView, Platform, ScrollView, View, type ScrollViewProps, type ViewProps } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { ScreenGradient } from './ScreenGradient';
 
 interface AppScreenProps extends ViewProps {
   scroll?: boolean;
   keyboardAware?: boolean;
+  /** Render the purple→violet glass gradient behind the screen (transparent surfaces). */
+  gradient?: boolean;
   className?: string;
   refreshControl?: ScrollViewProps['refreshControl'];
 }
 
-export function AppScreen({ scroll = false, keyboardAware = false, className = '', children, refreshControl, ...props }: AppScreenProps) {
+export function AppScreen({ scroll = false, keyboardAware = false, gradient = false, className = '', children, refreshControl, ...props }: AppScreenProps) {
   const inner = scroll ? (
     <ScrollView
       className="flex-1"
@@ -26,22 +29,29 @@ export function AppScreen({ scroll = false, keyboardAware = false, className = '
     </View>
   );
 
-  if (keyboardAware) {
+  const body = keyboardAware ? (
+    <KeyboardAvoidingView
+      className="flex-1"
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+    >
+      {inner}
+    </KeyboardAvoidingView>
+  ) : (
+    inner
+  );
+
+  if (gradient) {
     return (
-      <SafeAreaView className="flex-1 bg-gray-50">
-        <KeyboardAvoidingView
-          className="flex-1"
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        >
-          {inner}
-        </KeyboardAvoidingView>
-      </SafeAreaView>
+      <View className="flex-1">
+        <ScreenGradient />
+        <SafeAreaView className="flex-1">{body}</SafeAreaView>
+      </View>
     );
   }
 
   return (
     <SafeAreaView className="flex-1 bg-gray-50">
-      {inner}
+      {body}
     </SafeAreaView>
   );
 }

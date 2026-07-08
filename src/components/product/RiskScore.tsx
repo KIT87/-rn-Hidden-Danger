@@ -1,4 +1,5 @@
 import { View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import Svg, {
   Circle,
   ClipPath,
@@ -16,8 +17,16 @@ import { getScoreLevel } from '@/features/products/scoreLevel';
 interface RiskScoreProps {
   /** Risk level: 1 = low, 2 = moderate, 3 = high. `null` = unknown. */
   riskScore: number | null;
-  size?: 'lg' | 'sm';
+  size?: 'lg' | 'sm' | 'bar';
 }
+
+// Segments shared by the gauge + bar: "?" (unknown) then LOW / MODERATE / HIGH.
+const BAR_SEGMENTS = [
+  { key: 'unknown', color: '#d1d5db', label: '?' },
+  { key: 'low', color: '#67c04c', label: 'LOW' },
+  { key: 'mod', color: '#f5a623', label: 'MOD' },
+  { key: 'high', color: '#e0353b', label: 'HIGH' },
+] as const;
 
 // ─── Geometry helpers (pure) ────────────────────────────────────────────────
 // Semicircular gauge: LEFT = low risk (green) → RIGHT = high risk (red).
@@ -54,6 +63,81 @@ export function RiskScore({ riskScore, size = 'lg' }: RiskScoreProps) {
         <AppText variant="caption" style={{ color: level.color, fontWeight: '700' }}>
           {level.label}
         </AppText>
+      </View>
+    );
+  }
+
+  // ── Horizontal segmented bar (product RISK LEVEL block) ──
+  if (size === 'bar') {
+    // ? (base 1) is ~⅓ the width of a risk bar (base 3). Marker + labels align
+    // via matching flex weights. Active segment full color; others dimmed.
+    const activeIndex = rated ? Math.min(3, Math.max(1, Math.round(Number(riskScore)))) : 0;
+    const weights = [1, 3, 3, 3];
+
+    return (
+      <View className="w-full" accessibilityLabel={rated ? `${level.label} risk` : 'Risk unknown'}>
+        {/* Marker row (downward triangle over the active segment) */}
+        <View className="flex-row items-end" style={{ height: 8, marginBottom: 4 }}>
+          {BAR_SEGMENTS.map((s, i) => (
+            <View key={s.key} style={{ flex: weights[i] }} className="items-center justify-end">
+              {i === activeIndex && (
+                <View
+                  style={{
+                    width: 0,
+                    height: 0,
+                    borderLeftWidth: 5,
+                    borderRightWidth: 5,
+                    borderTopWidth: 7,
+                    borderLeftColor: 'transparent',
+                    borderRightColor: 'transparent',
+                    borderTopColor: '#ffffff',
+                  }}
+                />
+              )}
+            </View>
+          ))}
+        </View>
+
+        {/* Segmented bar */}
+        <View className="flex-row" style={{ gap: 5 }}>
+          {BAR_SEGMENTS.map((s, i) => (
+            <View
+              key={s.key}
+              style={{
+                flex: weights[i],
+                height: 10,
+                borderRadius: 5,
+                backgroundColor: s.color,
+                opacity: i === activeIndex ? 1 : 0.28,
+              }}
+            />
+          ))}
+        </View>
+
+        {/* Labels */}
+        <View className="flex-row" style={{ marginTop: 6 }}>
+          {BAR_SEGMENTS.map((s, i) => (
+            <View key={s.key} style={{ flex: weights[i] }} className="items-center">
+              <AppText
+                variant="caption"
+                className={i === activeIndex ? 'text-white' : 'text-white/40'}
+                style={{ fontSize: 10, fontWeight: '700', letterSpacing: 0.5 }}
+              >
+                {s.label}
+              </AppText>
+            </View>
+          ))}
+        </View>
+
+        {/* Level pill */}
+        <View className="items-center" style={{ marginTop: 12 }}>
+          <View className="flex-row items-center gap-1.5 rounded-full px-4 py-1.5" style={{ backgroundColor: level.bg }}>
+            <Ionicons name="star" size={13} color={level.color} />
+            <AppText variant="label" style={{ color: level.color, fontWeight: '800', letterSpacing: 0.5 }}>
+              {level.label.toUpperCase()}
+            </AppText>
+          </View>
+        </View>
       </View>
     );
   }

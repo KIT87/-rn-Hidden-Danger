@@ -1,7 +1,8 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Controller, useForm } from 'react-hook-form';
-import { View } from 'react-native';
+import { ActivityIndicator, Pressable, View } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
 import { AppButton, AppInput, AppScreen, AppText } from '@/components/ui';
 import { useAuth } from '@/features/auth/AuthContext';
 import { useVerifyCode } from '@/features/auth/useVerifyCode';
@@ -45,13 +46,15 @@ export default function ConfirmScreen() {
   const submit = handleSubmit(onSubmit);
 
   return (
-    <AppScreen scroll keyboardAware className="gap-10 pt-16">
+    <AppScreen gradient scroll keyboardAware className="gap-10 pt-16">
+      <StatusBar style="light" />
+
       {/* Header */}
       <View className="gap-2">
-        <AppText variant="title">Check your email</AppText>
-        <AppText variant="body" className="text-gray-500">
+        <AppText variant="title" className="text-white">Check your email</AppText>
+        <AppText variant="body" className="text-white/60">
           We sent a 4-digit code to{' '}
-          <AppText variant="body" className="font-semibold text-gray-800">
+          <AppText variant="body" className="font-semibold text-white">
             {email}
           </AppText>
         </AppText>
@@ -64,6 +67,7 @@ export default function ConfirmScreen() {
           name="code"
           render={({ field: { onChange, value } }) => (
             <AppInput
+              tone="glass"
               label="Code"
               placeholder="1234"
               keyboardType="number-pad"
@@ -81,7 +85,7 @@ export default function ConfirmScreen() {
         />
 
         {isError && (
-          <AppText variant="caption" className="text-red-500">
+          <AppText variant="caption" style={{ color: '#fca5a5' }}>
             {error instanceof ApiError && error.status === 422
               ? 'That code is incorrect or has expired. Try again or request a new one.'
               : 'Something went wrong. Please try again.'}
@@ -89,29 +93,22 @@ export default function ConfirmScreen() {
         )}
 
         {isResendError && (
-          <AppText variant="caption" className="text-red-500">
+          <AppText variant="caption" style={{ color: '#fca5a5' }}>
             {getRequestCodeError(resendError)}
           </AppText>
         )}
 
-        <AppButton
-          label="Verify code"
-          onPress={submit}
-          loading={isPending}
-        />
+        <AppButton label="Verify code" onPress={submit} loading={isPending} />
 
-        <AppButton
-          label="Resend code"
-          variant="ghost"
-          loading={isResending}
-          onPress={() => resend(email)}
-        />
-
-        <AppButton
-          label="Back"
-          variant="ghost"
-          onPress={() => router.back()}
-        />
+        <View className="flex-row items-center justify-center gap-6 pt-1">
+          <Pressable onPress={() => resend(email)} disabled={isResending} hitSlop={8} className="flex-row items-center gap-1.5 active:opacity-60">
+            {isResending && <ActivityIndicator size="small" color="#ffffff" />}
+            <AppText variant="label" className="text-white/80 font-semibold">Resend code</AppText>
+          </Pressable>
+          <Pressable onPress={() => router.back()} hitSlop={8} className="active:opacity-60">
+            <AppText variant="label" className="text-white/60 font-semibold">Back</AppText>
+          </Pressable>
+        </View>
       </View>
     </AppScreen>
   );

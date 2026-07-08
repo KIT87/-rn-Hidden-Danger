@@ -21,7 +21,8 @@ export const productsApi = {
   featured: (limit: number, offset: number) =>
     api.get<ProductSummary[]>(`products/featured?limit=${limit}&offset=${offset}`),
   recentlyViewed: () => api.get<ProductSummary[]>('products/recently_viewed'),
-  topRated: () => api.get<TopRatedProduct[]>('products/top_rated'),
+  topRated: (limit = 10, offset = 0) =>
+    api.get<TopRatedProduct[]>(`products/top_rated?limit=${limit}&offset=${offset}`),
   detail: (id: number) => api.get<ProductDetail>(`products/${id}`),
   search: (body: CatalogSearchRequest) =>
     searchApi.search<CatalogSearchResponse>({ include_images: true, ...body }),

@@ -1,11 +1,13 @@
 import { useCallback, useState } from 'react';
 import { ActivityIndicator, FlatList, Image, Pressable, View } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { AppScreen, AppText } from '@/components/ui';
+import { AppText, GlassHeader, ScreenGradient } from '@/components/ui';
 import { AppToast, useToast } from '@/components/ui/AppToast';
 import { StarRating } from '@/components/product/StarRating';
 import { ReviewSheet } from '@/components/product/ReviewSheet';
+import { GLASS } from '@/theme/glass';
 import { useMyReviews } from '@/features/products/useMyReviews';
 import type { MyReview } from '@/features/products/types';
 
@@ -38,54 +40,48 @@ export default function MyReviewsScreen() {
   );
 
   return (
-    <View style={{ flex: 1 }}>
-      <AppScreen className="gap-0 px-0 py-0">
-        <FlatList
-          data={allReviews}
-          keyExtractor={(item) => String(item.review_id)}
-          renderItem={renderItem}
-          contentContainerStyle={{ paddingHorizontal: 16, paddingVertical: 24, gap: 12 }}
-          showsVerticalScrollIndicator={false}
-          refreshing={isRefetching}
-          onRefresh={refetch}
-          onEndReached={() => hasNextPage && !isFetchingNextPage && fetchNextPage()}
-          onEndReachedThreshold={0.3}
-          ListHeaderComponent={
-            <View className="flex-row items-center gap-3 mb-4">
-              <Pressable onPress={() => router.back()} hitSlop={8}>
-                <Ionicons name="arrow-back" size={22} color="#111827" />
-              </Pressable>
-              <AppText variant="heading">My Reviews</AppText>
+    <View className="flex-1">
+      <ScreenGradient />
+      <StatusBar style="light" />
+      <GlassHeader title="My Reviews" onBack={() => router.back()} />
+
+      <FlatList
+        data={allReviews}
+        keyExtractor={(item) => String(item.review_id)}
+        renderItem={renderItem}
+        contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 24, paddingTop: 4, gap: 12 }}
+        showsVerticalScrollIndicator={false}
+        refreshing={isRefetching}
+        onRefresh={refetch}
+        onEndReached={() => hasNextPage && !isFetchingNextPage && fetchNextPage()}
+        onEndReachedThreshold={0.3}
+        ListEmptyComponent={
+          isLoading ? (
+            <View className="items-center justify-center py-20">
+              <ActivityIndicator size="large" color="#ffffff" />
             </View>
-          }
-          ListEmptyComponent={
-            isLoading ? (
-              <View className="items-center justify-center py-20">
-                <ActivityIndicator size="large" color="#7c3aed" />
+          ) : (
+            <View className="items-center justify-center gap-4 py-20">
+              <View className="w-16 h-16 rounded-3xl items-center justify-center" style={{ backgroundColor: 'rgba(255,255,255,0.14)' }}>
+                <Ionicons name="star-outline" size={32} color="#ffffff" />
               </View>
-            ) : (
-              <View className="items-center justify-center gap-4 py-20">
-                <View className="w-16 h-16 rounded-3xl bg-blue-50 items-center justify-center">
-                  <Ionicons name="star-outline" size={32} color="#2563eb" />
-                </View>
-                <View className="items-center gap-1">
-                  <AppText variant="heading">No reviews yet</AppText>
-                  <AppText variant="body" className="text-gray-400 text-center">
-                    Write a review from any product page.
-                  </AppText>
-                </View>
+              <View className="items-center gap-1">
+                <AppText variant="heading" className="text-white">No reviews yet</AppText>
+                <AppText variant="body" className="text-white/60 text-center">
+                  Write a review from any product page.
+                </AppText>
               </View>
-            )
-          }
-          ListFooterComponent={
-            isFetchingNextPage ? (
-              <View className="py-4 items-center">
-                <ActivityIndicator size="small" color="#9ca3af" />
-              </View>
-            ) : null
-          }
-        />
-      </AppScreen>
+            </View>
+          )
+        }
+        ListFooterComponent={
+          isFetchingNextPage ? (
+            <View className="py-4 items-center">
+              <ActivityIndicator size="small" color="#ffffff" />
+            </View>
+          ) : null
+        }
+      />
 
       {editingReview !== null && (
         <ReviewSheet
@@ -116,11 +112,14 @@ interface MyReviewCardProps {
 
 function MyReviewCard({ review, onEdit, onProductPress }: MyReviewCardProps) {
   return (
-    <View className={`bg-white rounded-2xl border overflow-hidden ${review.hidden ? 'border-amber-200' : 'border-gray-100'}`}>
+    <View
+      className="rounded-2xl overflow-hidden"
+      style={{ backgroundColor: GLASS.cardBg, borderWidth: 1, borderColor: review.hidden ? 'rgba(251,191,36,0.5)' : GLASS.cardBorder }}
+    >
       {review.hidden && (
-        <View className="flex-row items-center gap-1.5 bg-amber-50 px-4 py-2.5">
-          <Ionicons name="eye-off-outline" size={13} color="#d97706" />
-          <AppText variant="caption" className="text-amber-700 font-medium">
+        <View className="flex-row items-center gap-1.5 px-4 py-2.5" style={{ backgroundColor: 'rgba(251,191,36,0.18)' }}>
+          <Ionicons name="eye-off-outline" size={13} color="#fde68a" />
+          <AppText variant="caption" className="font-medium" style={{ color: '#fde68a' }}>
             Under review — visible only to you
           </AppText>
         </View>
@@ -134,52 +133,52 @@ function MyReviewCard({ review, onEdit, onProductPress }: MyReviewCardProps) {
         {review.product_images?.[0] ? (
           <Image
             source={{ uri: review.product_images[0] }}
-            style={{ width: 44, height: 44, borderRadius: 8, backgroundColor: '#f9fafb' }}
+            style={{ width: 44, height: 44, borderRadius: 8, backgroundColor: 'rgba(255,255,255,0.9)' }}
             resizeMode="contain"
           />
         ) : (
-          <View className="w-11 h-11 rounded-lg bg-gray-100 items-center justify-center">
-            <Ionicons name="cube-outline" size={20} color="#d1d5db" />
+          <View className="w-11 h-11 rounded-lg items-center justify-center" style={{ backgroundColor: 'rgba(255,255,255,0.12)' }}>
+            <Ionicons name="cube-outline" size={20} color="#c4b5fd" />
           </View>
         )}
         <View className="flex-1">
-          <AppText variant="label" numberOfLines={1}>{review.product_name ?? 'Product'}</AppText>
+          <AppText variant="label" className="text-white" numberOfLines={1}>{review.product_name ?? 'Product'}</AppText>
           <View className="flex-row items-center gap-1.5 mt-0.5">
             <StarRating score={review.overall_score} size={11} />
-            <AppText variant="caption" className="text-gray-400">
+            <AppText variant="caption" className="text-white/55">
               {new Date(review.created_at).toLocaleDateString('en-US', {
                 year: 'numeric', month: 'short', day: 'numeric',
               })}
             </AppText>
           </View>
         </View>
-        <Ionicons name="chevron-forward" size={14} color="#d1d5db" />
+        <Ionicons name="chevron-forward" size={14} color="rgba(255,255,255,0.5)" />
       </Pressable>
 
       {/* Review preview */}
       <View className="px-4 pb-3">
-        <AppText variant="body" className="text-gray-700" numberOfLines={3}>
-          {review.review_text}
+        <AppText variant="body" className="text-white/90 italic" numberOfLines={3}>
+          "{review.review_text}"
         </AppText>
       </View>
 
       {/* Footer */}
-      <View className="flex-row items-center justify-between px-4 py-3 border-t border-gray-50">
+      <View className="flex-row items-center justify-between px-4 py-3" style={{ borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.10)' }}>
         <View className="flex-row items-center gap-1.5">
-          <Ionicons name="thumbs-up-outline" size={13} color="#9ca3af" />
-          <AppText variant="caption" className="text-gray-400">
+          <Ionicons name="thumbs-up-outline" size={13} color="rgba(255,255,255,0.5)" />
+          <AppText variant="caption" className="text-white/50">
             {review.helpful_count} {review.helpful_count === 1 ? 'person' : 'people'} found this helpful
           </AppText>
         </View>
         {!review.locked ? (
           <Pressable onPress={onEdit} className="flex-row items-center gap-1 active:opacity-70" hitSlop={8}>
-            <Ionicons name="create-outline" size={14} color="#7c3aed" />
-            <AppText variant="caption" style={{ color: '#7c3aed', fontWeight: '500' }}>Edit</AppText>
+            <Ionicons name="create-outline" size={14} color="#ffffff" />
+            <AppText variant="caption" className="text-white font-semibold">Edit</AppText>
           </Pressable>
         ) : (
           <View className="flex-row items-center gap-1">
-            <Ionicons name="lock-closed-outline" size={12} color="#9ca3af" />
-            <AppText variant="caption" className="text-gray-400">Locked</AppText>
+            <Ionicons name="lock-closed-outline" size={12} color="rgba(255,255,255,0.5)" />
+            <AppText variant="caption" className="text-white/50">Locked</AppText>
           </View>
         )}
       </View>

@@ -17,8 +17,12 @@ export function AppModal({ visible, title, children, onClose }: AppModalProps) {
       onRequestClose={onClose}
     >
       <Pressable className="flex-1 bg-black/50 justify-end" onPress={onClose}>
-        <Pressable className="bg-white rounded-t-3xl p-6 gap-4" onPress={() => {}}>
-          {title && <AppText variant="heading">{title}</AppText>}
+        <Pressable
+          className="rounded-t-3xl p-6 gap-4"
+          style={{ backgroundColor: '#2e1b58', borderTopWidth: 1, borderColor: 'rgba(255,255,255,0.14)' }}
+          onPress={() => {}}
+        >
+          {title && <AppText variant="heading" className="text-white">{title}</AppText>}
           {children}
         </Pressable>
       </Pressable>

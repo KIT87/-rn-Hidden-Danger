@@ -7,11 +7,13 @@ import {
   ScrollView,
   View,
 } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { AppCard, AppScreen, AppText } from '@/components/ui';
-import { ProductCard, RiskScore, SearchHistoryRow, TopRatedRow } from '@/components/product';
+import { ProductCard, RiskScore, SearchHistoryRow } from '@/components/product';
+import { GLASS } from '@/theme/glass';
 import { useFeaturedProducts } from '@/features/products/useFeaturedProducts';
 import { useRecentlyViewed } from '@/features/products/useRecentlyViewed';
 import { useTopRated } from '@/features/products/useTopRated';
@@ -30,19 +32,19 @@ const MAX = 10;
 
 function ProductRow({ product, onPress }: { product: ProductSummary; onPress: () => void }) {
   return (
-    <Pressable onPress={onPress} className="flex-row items-center gap-3 py-3 active:bg-gray-50">
-      <View className="rounded-xl overflow-hidden bg-gray-50 shrink-0" style={{ width: 56, height: 56 }}>
+    <Pressable onPress={onPress} className="flex-row items-center gap-3 py-3 active:opacity-70">
+      <View className="rounded-xl overflow-hidden shrink-0" style={{ width: 56, height: 56, backgroundColor: 'rgba(255,255,255,0.9)' }}>
         {product.image_url ?? product.images[0] ? (
           <Image source={{ uri: product.image_url ?? product.images[0] }} style={{ width: 56, height: 56 }} resizeMode="contain" />
         ) : (
           <View className="flex-1 items-center justify-center">
-            <Ionicons name="cube-outline" size={22} color="#d1d5db" />
+            <Ionicons name="cube-outline" size={22} color="#c4b5fd" />
           </View>
         )}
       </View>
       <View className="flex-1 gap-0.5">
-        <AppText variant="label" numberOfLines={2}>{product.name}</AppText>
-        <AppText variant="caption" className="text-gray-400">{product.brand_name}</AppText>
+        <AppText variant="label" numberOfLines={2} className="text-white">{product.name}</AppText>
+        <AppText variant="caption" className="text-white/55">{product.brand_name}</AppText>
       </View>
       <RiskScore riskScore={product.risk_score} size="sm" />
     </Pressable>
@@ -69,21 +71,32 @@ function CollapsibleHeader({
   return (
     <Pressable className="flex-row items-center justify-between" onPress={onToggle} hitSlop={8}>
       <View className="flex-row items-center gap-2">
-        <Ionicons name={icon} size={16} color="#6b7280" />
-        <AppText variant="heading">{title}</AppText>
+        <Ionicons name={icon} size={16} color="rgba(255,255,255,0.85)" />
+        <AppText variant="heading" className="text-white">{title}</AppText>
       </View>
       <View className="flex-row items-center gap-2">
         {count !== undefined && (
-          <View className="rounded-full bg-gray-100 px-2.5 py-0.5 min-w-[24px] items-center">
-            <AppText variant="caption" className="text-gray-500 font-semibold">{count}</AppText>
+          <View className="rounded-full px-2.5 py-0.5 min-w-[24px] items-center" style={{ backgroundColor: GLASS.chipBg }}>
+            <AppText variant="caption" className="text-white font-semibold">{count}</AppText>
           </View>
         )}
         {loading
-          ? <ActivityIndicator size="small" color="#7c3aed" />
-          : <Ionicons name={open ? 'chevron-up' : 'chevron-down'} size={16} color="#9ca3af" />
+          ? <ActivityIndicator size="small" color="#ffffff" />
+          : <Ionicons name={open ? 'chevron-up' : 'chevron-down'} size={16} color="rgba(255,255,255,0.7)" />
         }
       </View>
     </Pressable>
+  );
+}
+
+// ─── Section header (non-collapsible) ─────────────────────────────────────────
+
+function SectionHeader({ children, action }: { children: React.ReactNode; action?: React.ReactNode }) {
+  return (
+    <View className="flex-row items-center justify-between">
+      <View className="flex-row items-center gap-2">{children}</View>
+      {action}
+    </View>
   );
 }
 
@@ -157,14 +170,17 @@ export default function HomeScreen() {
 
   return (
     <AppScreen
+      gradient
       scroll
       className="gap-5 pb-8"
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#7c3aed" colors={['#7c3aed']} />}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#ffffff" colors={['#ffffff']} />}
     >
+      <StatusBar style="light" />
+
       {/* Greeting */}
       <View className="pt-2 gap-1">
-        <AppText variant="title">Hi, {nickname ?? 'there'} 👋</AppText>
-        <AppText variant="body" className="text-gray-500">
+        <AppText variant="title" className="text-white">Hi, {nickname ?? 'there'} 👋</AppText>
+        <AppText variant="body" className="text-white/70">
           What are you checking today?
         </AppText>
       </View>
@@ -174,7 +190,7 @@ export default function HomeScreen() {
         <Pressable
           onPress={() => router.navigate('/(tabs)/scan')}
           className="flex-row items-center gap-4 rounded-3xl px-5 py-5 active:opacity-90"
-          style={{ backgroundColor: '#7c3aed' }}
+          style={{ backgroundColor: GLASS.cardBgStrong, borderWidth: 1, borderColor: GLASS.cardBorder }}
         >
           <View className="w-12 h-12 rounded-2xl items-center justify-center" style={{ backgroundColor: 'rgba(255,255,255,0.2)' }}>
             <Ionicons name="scan-outline" size={24} color="white" />
@@ -194,9 +210,9 @@ export default function HomeScreen() {
 
         {/* Static pagination dots */}
         <View className="flex-row items-center justify-center gap-1.5">
-          <View className="w-5 h-1.5 rounded-full bg-gray-400" />
-          <View className="w-1.5 h-1.5 rounded-full bg-gray-200" />
-          <View className="w-1.5 h-1.5 rounded-full bg-gray-200" />
+          <View className="w-5 h-1.5 rounded-full" style={{ backgroundColor: 'rgba(255,255,255,0.9)' }} />
+          <View className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: 'rgba(255,255,255,0.35)' }} />
+          <View className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: 'rgba(255,255,255,0.35)' }} />
         </View>
       </View>
 
@@ -204,73 +220,80 @@ export default function HomeScreen() {
       <View className="flex-row items-center gap-2">
         <Pressable
           onPress={() => router.push('/search/name' as never)}
-          className="flex-1 flex-row items-center gap-2 bg-white rounded-2xl px-4 py-3 border border-gray-100"
-          style={{ shadowColor: '#000', shadowOpacity: 0.04, shadowOffset: { width: 0, height: 1 }, shadowRadius: 4, elevation: 1 }}
+          className="flex-1 flex-row items-center gap-2 rounded-2xl px-4 py-3"
+          style={{ backgroundColor: GLASS.cardBg, borderWidth: 1, borderColor: GLASS.cardBorder }}
         >
-          <Ionicons name="search-outline" size={16} color="#9ca3af" />
-          <AppText variant="caption" className="text-gray-400 flex-1">Search product name...</AppText>
+          <Ionicons name="search-outline" size={16} color="rgba(255,255,255,0.7)" />
+          <AppText variant="caption" className="text-white/60 flex-1">Search product name...</AppText>
         </Pressable>
         <Pressable
           onPress={() => router.navigate('/(tabs)/scan')}
           className="w-11 h-11 rounded-2xl items-center justify-center active:opacity-80"
-          style={{ backgroundColor: '#7c3aed' }}
+          style={{ backgroundColor: GLASS.cardBgStrong, borderWidth: 1, borderColor: GLASS.cardBorder }}
         >
           <MaterialCommunityIcons name="barcode-scan" size={20} color="white" />
         </Pressable>
       </View>
 
-      {/* Top rated */}
+      {/* My Top Picks */}
       {(loadingTopRated || (topRated && topRated.length > 0)) && (
         <View className="gap-3">
-          <View className="flex-row items-center justify-between">
-            <View className="flex-row items-center gap-2">
-              <Ionicons name="star" size={16} color="#f59e0b" />
-              <AppText variant="heading">Top rated</AppText>
-            </View>
-            {topRated && topRated.length > 5 && (
-              <Pressable onPress={() => router.push('/top-rated' as never)} hitSlop={8}>
-                <AppText variant="caption" style={{ color: '#7c3aed', fontWeight: '600' }}>See all</AppText>
-              </Pressable>
-            )}
-          </View>
+          <SectionHeader
+            action={
+              topRated && topRated.length > 5 ? (
+                <Pressable onPress={() => router.push('/top-rated' as never)} hitSlop={8}>
+                  <AppText variant="caption" className="text-white/90 font-semibold">See all</AppText>
+                </Pressable>
+              ) : undefined
+            }
+          >
+            <Ionicons name="star" size={16} color="#fbbf24" />
+            <AppText variant="heading" className="text-white">Top rated products</AppText>
+          </SectionHeader>
 
           {loadingTopRated && !topRated ? (
-            <ActivityIndicator color="#7c3aed" className="py-6" />
+            <ActivityIndicator color="#ffffff" className="py-6" />
           ) : (
-            <AppCard>
-              <View className="divide-y divide-gray-100">
-                {topRated!.slice(0, 5).map((product) => (
-                  <TopRatedRow
-                    key={product.product_id}
-                    product={product}
-                    onPress={() => router.push(`/product/${product.product_id}` as never)}
-                  />
-                ))}
-              </View>
-            </AppCard>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              className="-mx-4"
+              contentContainerStyle={{ paddingHorizontal: 16, gap: CARD_GAP }}
+            >
+              {topRated!.slice(0, 5).map((product) => (
+                <ProductCard
+                  key={product.product_id}
+                  product={product}
+                  tone="glass"
+                  rating={{ score: product.average_score, count: product.reviews_count }}
+                  onPress={() => router.push(`/product/${product.product_id}` as never)}
+                />
+              ))}
+            </ScrollView>
           )}
         </View>
       )}
 
       {/* Discover */}
       <View className="gap-3">
-        <View className="flex-row items-center justify-between">
-          <View className="flex-row items-center gap-2">
-            <MaterialCommunityIcons name="star-four-points" size={16} color="#7c3aed" />
-            <AppText variant="heading">Discover</AppText>
-          </View>
-          {hasMore && (
-            <Pressable onPress={() => loadMore(products.length)} hitSlop={8} disabled={loadingMoreProducts}>
-              {loadingMoreProducts
-                ? <ActivityIndicator size="small" color="#7c3aed" />
-                : <AppText variant="caption" style={{ color: '#7c3aed', fontWeight: '600' }}>More</AppText>
-              }
-            </Pressable>
-          )}
-        </View>
+        <SectionHeader
+          action={
+            hasMore ? (
+              <Pressable onPress={() => loadMore(products.length)} hitSlop={8} disabled={loadingMoreProducts}>
+                {loadingMoreProducts
+                  ? <ActivityIndicator size="small" color="#ffffff" />
+                  : <AppText variant="caption" className="text-white/90 font-semibold">More</AppText>
+                }
+              </Pressable>
+            ) : undefined
+          }
+        >
+          <MaterialCommunityIcons name="star-four-points" size={16} color="#ffffff" />
+          <AppText variant="heading" className="text-white">Discover</AppText>
+        </SectionHeader>
 
         {initialLoading ? (
-          <ActivityIndicator color="#7c3aed" className="py-6" />
+          <ActivityIndicator color="#ffffff" className="py-6" />
         ) : (
           <ScrollView
             ref={discoverRef}
@@ -283,6 +306,7 @@ export default function HomeScreen() {
               <ProductCard
                 key={product.product_id}
                 product={product}
+                tone="glass"
                 onPress={() => router.push(`/product/${product.product_id}` as never)}
               />
             ))}
@@ -291,7 +315,7 @@ export default function HomeScreen() {
       </View>
 
       {/* Recently viewed */}
-      <AppCard>
+      <AppCard glass>
         <CollapsibleHeader
           icon="eye-outline"
           title="Recently viewed"
@@ -303,11 +327,11 @@ export default function HomeScreen() {
         {recentlyViewedOpen && (
           <View className="mt-3">
             {!recentlyViewed ? (
-              <ActivityIndicator color="#7c3aed" className="py-4" />
+              <ActivityIndicator color="#ffffff" className="py-4" />
             ) : recentlyViewed.length === 0 ? (
-              <AppText variant="caption" className="text-gray-400 py-3">No recently viewed products</AppText>
+              <AppText variant="caption" className="text-white/50 py-3">No recently viewed products</AppText>
             ) : (
-              <View className="divide-y divide-gray-100">
+              <View className="divide-y divide-white/10">
                 {recentlyViewed.map((product) => (
                   <ProductRow
                     key={product.product_id}
@@ -322,7 +346,7 @@ export default function HomeScreen() {
       </AppCard>
 
       {/* Recent name searches */}
-      <AppCard>
+      <AppCard glass>
         <CollapsibleHeader
           icon="time-outline"
           title="Recent searches"
@@ -334,16 +358,17 @@ export default function HomeScreen() {
         {nameOpen && (
           <View className="mt-2">
             {!history ? (
-              <ActivityIndicator color="#7c3aed" className="py-4" />
+              <ActivityIndicator color="#ffffff" className="py-4" />
             ) : nameSearches.length === 0 ? (
-              <AppText variant="caption" className="text-gray-400 py-3">No recent searches</AppText>
+              <AppText variant="caption" className="text-white/50 py-3">No recent searches</AppText>
             ) : (
               <>
-                <View className="divide-y divide-gray-100">
+                <View className="divide-y divide-white/10">
                   {visibleSearches.map((item, i) => (
                     <SearchHistoryRow
                       key={i}
                       item={item}
+                      tone="glass"
                       onPress={() =>
                         router.push(`/search/name?query=${encodeURIComponent(item.query)}` as never)
                       }
@@ -352,7 +377,7 @@ export default function HomeScreen() {
                 </View>
                 {nameSearches.length > INITIAL && (
                   <Pressable onPress={() => setMoreSearches((v) => !v)} hitSlop={8} className="pt-2">
-                    <AppText variant="caption" style={{ color: '#7c3aed', fontWeight: '600' }}>
+                    <AppText variant="caption" className="text-white/90 font-semibold">
                       {moreSearches ? 'Show less' : `${nameSearches.length - INITIAL} more`}
                     </AppText>
                   </Pressable>
@@ -364,7 +389,7 @@ export default function HomeScreen() {
       </AppCard>
 
       {/* Recently scanned */}
-      <AppCard>
+      <AppCard glass>
         <CollapsibleHeader
           icon="barcode-outline"
           title="Recently scanned"
@@ -376,16 +401,17 @@ export default function HomeScreen() {
         {scanOpen && (
           <View className="mt-2">
             {!history ? (
-              <ActivityIndicator color="#7c3aed" className="py-4" />
+              <ActivityIndicator color="#ffffff" className="py-4" />
             ) : eanScans.length === 0 ? (
-              <AppText variant="caption" className="text-gray-400 py-3">No recent scans</AppText>
+              <AppText variant="caption" className="text-white/50 py-3">No recent scans</AppText>
             ) : (
               <>
-                <View className="divide-y divide-gray-100">
+                <View className="divide-y divide-white/10">
                   {visibleScans.map((item, i) => (
                     <SearchHistoryRow
                       key={i}
                       item={item}
+                      tone="glass"
                       loading={loadingEan === item.query}
                       onPress={() =>
                         item.product_found
@@ -397,7 +423,7 @@ export default function HomeScreen() {
                 </View>
                 {eanScans.length > INITIAL && (
                   <Pressable onPress={() => setMoreScans((v) => !v)} hitSlop={8} className="pt-2">
-                    <AppText variant="caption" style={{ color: '#7c3aed', fontWeight: '600' }}>
+                    <AppText variant="caption" className="text-white/90 font-semibold">
                       {moreScans ? 'Show less' : `${eanScans.length - INITIAL} more`}
                     </AppText>
                   </Pressable>

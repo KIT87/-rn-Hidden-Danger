@@ -2,6 +2,7 @@ import { Image, Pressable, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { AppText } from '@/components/ui';
 import { StarRating } from './StarRating';
+import { timeAgo } from '@/utils/time';
 import type { Review, UsageDuration } from '@/features/products/types';
 
 interface ReviewCardProps {
@@ -16,31 +17,6 @@ function avatarColor(nickname: string | null) {
   return AVATAR_COLORS[sum % AVATAR_COLORS.length];
 }
 
-// Relative "how long ago" the review was posted.
-function timeAgo(iso: string): string {
-  const then = new Date(iso).getTime();
-  if (Number.isNaN(then)) return '';
-  const secs = Math.max(0, Math.floor((Date.now() - then) / 1000));
-  const units: [number, string][] = [
-    [60, 'second'],
-    [60, 'minute'],
-    [24, 'hour'],
-    [7, 'day'],
-    [4.345, 'week'],
-    [12, 'month'],
-    [Number.POSITIVE_INFINITY, 'year'],
-  ];
-  let value = secs;
-  let unit = 'second';
-  for (const [size, name] of units) {
-    if (value < size) { unit = name; break; }
-    value = Math.floor(value / size);
-    unit = name;
-  }
-  if (unit === 'second' && value < 30) return 'just now';
-  return `${value} ${unit}${value === 1 ? '' : 's'} ago`;
-}
-
 const USAGE_LABELS: Record<UsageDuration, string> = {
   sample_one:       'Tried a sample',
   one_week:         'Used for one week',
@@ -51,12 +27,36 @@ const USAGE_LABELS: Record<UsageDuration, string> = {
 };
 
 const DETAIL_SCORES = [
-  { key: 'performance_score',        label: 'Perf.' },
-  { key: 'ease_of_use_score',        label: 'Use' },
-  { key: 'accuracy_of_claims_score', label: 'Acc.' },
-  { key: 'value_for_money_score',    label: 'Value' },
-  { key: 'packaging_score',          label: 'Pack.' },
-];
+  { key: 'performance_score',        label: 'Performance' },
+  { key: 'ease_of_use_score',        label: 'Ease of use' },
+  { key: 'accuracy_of_claims_score', label: 'Accuracy of claims' },
+  { key: 'value_for_money_score',    label: 'Value for money' },
+  { key: 'packaging_score',          label: 'Packaging' },
+] as const;
+
+// Score → fill color for the sub-score bars.
+function scoreColor(v: number) {
+  if (v >= 4) return '#22c55e';
+  if (v === 3) return '#f5a623';
+  return '#ef4444';
+}
+
+function ScoreBar({ label, value }: { label: string; value: number }) {
+  const pct = Math.max(0, Math.min(1, value / 5));
+  return (
+    <View className="flex-row items-center gap-2.5">
+      <AppText variant="caption" className="text-white/60" numberOfLines={1} style={{ width: 108 }}>
+        {label}
+      </AppText>
+      <View className="flex-1 rounded-full overflow-hidden" style={{ height: 6, backgroundColor: 'rgba(255,255,255,0.15)' }}>
+        <View style={{ width: `${pct * 100}%`, height: '100%', borderRadius: 999, backgroundColor: scoreColor(value) }} />
+      </View>
+      <AppText variant="caption" className="text-white font-bold" style={{ width: 14, textAlign: 'right' }}>
+        {value}
+      </AppText>
+    </View>
+  );
+}
 
 export function ReviewCard({ review, onReport }: ReviewCardProps) {
   const nickname = review.user_nickname ?? 'Anonymous';
@@ -64,11 +64,18 @@ export function ReviewCard({ review, onReport }: ReviewCardProps) {
   const color = avatarColor(nickname);
 
   return (
-    <View className={`rounded-2xl overflow-hidden ${review.hidden ? 'border border-amber-200' : 'border border-gray-100'}`}>
+    <View
+      className="rounded-2xl overflow-hidden"
+      style={{
+        backgroundColor: 'rgba(255,255,255,0.10)',
+        borderWidth: 1,
+        borderColor: review.hidden ? 'rgba(251,191,36,0.5)' : 'rgba(255,255,255,0.18)',
+      }}
+    >
       {review.hidden && (
-        <View className="flex-row items-center gap-1.5 bg-amber-50 px-4 py-2.5">
-          <Ionicons name="eye-off-outline" size={13} color="#d97706" />
-          <AppText variant="caption" className="text-amber-700 font-medium">
+        <View className="flex-row items-center gap-1.5 px-4 py-2.5" style={{ backgroundColor: 'rgba(251,191,36,0.18)' }}>
+          <Ionicons name="eye-off-outline" size={13} color="#fde68a" />
+          <AppText variant="caption" className="font-medium" style={{ color: '#fde68a' }}>
             Under review — visible only to you
           </AppText>
         </View>
@@ -82,28 +89,55 @@ export function ReviewCard({ review, onReport }: ReviewCardProps) {
           </View>
           <View className="flex-1 gap-0.5">
             <View className="flex-row items-center justify-between">
-              <AppText variant="label">{nickname}</AppText>
+              <AppText variant="label" className="text-white">{nickname}</AppText>
               {!review.user_is_owner && (
                 <Pressable onPress={onReport} hitSlop={10} className="p-1 -mr-1">
-                  <Ionicons name="flag-outline" size={13} color="#d1d5db" />
+                  <Ionicons name="flag-outline" size={13} color="rgba(255,255,255,0.4)" />
                 </Pressable>
               )}
             </View>
-            <AppText variant="caption" className="text-gray-400">
+            <AppText variant="caption" className="text-white/50">
               {USAGE_LABELS[review.usage_duration]}
             </AppText>
           </View>
           <View className="items-end gap-0.5 shrink-0">
             <StarRating score={review.overall_score} size={14} />
-            <AppText variant="caption" className="text-gray-400" style={{ fontSize: 11 }}>
+            <AppText variant="caption" className="text-white/50" style={{ fontSize: 11 }}>
               {timeAgo(review.created_at)}
             </AppText>
           </View>
         </View>
 
+        {/* Buy again */}
+        {review.buy_again === 'yes' && (
+          <View className="flex-row items-center gap-2 flex-wrap">
+            <View className="flex-row items-center gap-1 rounded-full px-2.5 py-1" style={{ backgroundColor: 'rgba(34,197,94,0.22)' }}>
+              <Ionicons name="checkmark-circle" size={13} color="#4ade80" />
+              <AppText variant="caption" style={{ color: '#4ade80', fontWeight: '700' }}>WOULD BUY AGAIN</AppText>
+            </View>
+            {review.advantages ? (
+              <View className="rounded-full px-2.5 py-1" style={{ backgroundColor: 'rgba(255,255,255,0.12)' }}>
+                <AppText variant="caption" className="text-white/70" numberOfLines={1}>{review.advantages}</AppText>
+              </View>
+            ) : null}
+          </View>
+        )}
+        {review.buy_again === 'no' && (
+          <View className="flex-row items-center gap-1 self-start rounded-full px-2.5 py-1" style={{ backgroundColor: 'rgba(239,68,68,0.22)' }}>
+            <Ionicons name="close-circle" size={13} color="#f87171" />
+            <AppText variant="caption" style={{ color: '#f87171', fontWeight: '700' }}>WOULD NOT BUY AGAIN</AppText>
+          </View>
+        )}
+        {review.buy_again === 'not_sure' && (
+          <View className="flex-row items-center gap-1 self-start rounded-full px-2.5 py-1" style={{ backgroundColor: 'rgba(245,166,35,0.22)' }}>
+            <Ionicons name="help-circle" size={13} color="#fbbf24" />
+            <AppText variant="caption" style={{ color: '#fbbf24', fontWeight: '700' }}>NOT SURE</AppText>
+          </View>
+        )}
+
         {/* Review text */}
-        <View className="bg-gray-50 rounded-xl px-3.5 py-3">
-          <AppText variant="body" className="text-gray-700 leading-relaxed italic">
+        <View className="rounded-xl px-3.5 py-3" style={{ backgroundColor: 'rgba(255,255,255,0.08)' }}>
+          <AppText variant="body" className="text-white/90 leading-relaxed italic">
             "{review.review_text}"
           </AppText>
         </View>
@@ -112,54 +146,17 @@ export function ReviewCard({ review, onReport }: ReviewCardProps) {
         {review.image_url && (
           <Image
             source={{ uri: review.image_url }}
-            style={{ width: 80, height: 80, borderRadius: 10, backgroundColor: '#f9fafb' }}
+            style={{ width: 80, height: 80, borderRadius: 10, backgroundColor: 'rgba(255,255,255,0.1)' }}
             resizeMode="cover"
           />
         )}
 
-        {/* Sub-scores */}
-        <View className="flex-row justify-between">
-          {DETAIL_SCORES.map(({ key, label }) => {
-            const val = review[key as keyof Review] as number;
-            return (
-              <View key={key} className="items-center gap-0.5">
-                <AppText variant="caption" className="text-gray-400" style={{ fontSize: 10 }}>
-                  {label}
-                </AppText>
-                <View className="flex-row items-end gap-px">
-                  <AppText variant="caption" className="font-bold text-gray-700">{val}</AppText>
-                  <AppText variant="caption" className="text-gray-400" style={{ fontSize: 9, marginBottom: 0.5 }}>/5</AppText>
-                </View>
-              </View>
-            );
-          })}
+        {/* Sub-scores as progress bars */}
+        <View className="gap-2 pt-0.5">
+          {DETAIL_SCORES.map(({ key, label }) => (
+            <ScoreBar key={key} label={label} value={review[key] as number} />
+          ))}
         </View>
-
-        {/* Would buy again */}
-        {review.buy_again === 'yes' && (
-          <View className="flex-row items-center gap-1.5 flex-wrap">
-            <Ionicons name="checkmark-circle" size={15} color="#16a34a" />
-            <AppText variant="caption" className="text-green-700 font-semibold">Would buy again</AppText>
-            {review.advantages ? (
-              <>
-                <AppText variant="caption" className="text-gray-300">·</AppText>
-                <AppText variant="caption" className="text-gray-500">{review.advantages}</AppText>
-              </>
-            ) : null}
-          </View>
-        )}
-        {review.buy_again === 'no' && (
-          <View className="flex-row items-center gap-1.5">
-            <Ionicons name="close-circle" size={15} color="#ef4444" />
-            <AppText variant="caption" className="text-red-700 font-semibold">Would not buy again</AppText>
-          </View>
-        )}
-        {review.buy_again === 'not_sure' && (
-          <View className="flex-row items-center gap-1.5">
-            <Ionicons name="help-circle" size={15} color="#f59e0b" />
-            <AppText variant="caption" className="text-amber-700 font-semibold">Not sure</AppText>
-          </View>
-        )}
       </View>
     </View>
   );

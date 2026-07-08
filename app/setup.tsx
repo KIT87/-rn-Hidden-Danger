@@ -2,9 +2,11 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter } from 'expo-router';
 import { Controller, useForm } from 'react-hook-form';
 import { View } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { AppButton, AppInput, AppScreen, AppText } from '@/components/ui';
 import { useMutation } from '@tanstack/react-query';
+import { GLASS } from '@/theme/glass';
 import { authApi } from '@/features/auth/api';
 import { ApiError } from '@/api/client';
 import { useAuth } from '@/features/auth/AuthContext';
@@ -38,15 +40,20 @@ export default function SetupScreen() {
   const submit = handleSubmit(onSubmit);
 
   return (
-    <AppScreen scroll keyboardAware className="gap-10 pt-16">
+    <AppScreen gradient scroll keyboardAware className="gap-10 pt-16">
+      <StatusBar style="light" />
+
       {/* Brand */}
       <View className="items-center gap-4">
-        <View className="w-20 h-20 rounded-3xl bg-primary-600 items-center justify-center shadow-sm">
-          <Ionicons name="shield-checkmark" size={40} color="white" />
+        <View
+          className="w-20 h-20 rounded-3xl items-center justify-center"
+          style={{ backgroundColor: GLASS.cardBgStrong, borderWidth: 1, borderColor: GLASS.cardBorder }}
+        >
+          <Ionicons name="person-circle-outline" size={40} color="#ffffff" />
         </View>
         <View className="items-center gap-1">
-          <AppText variant="title" className="text-center">One last step</AppText>
-          <AppText variant="body" className="text-gray-500 text-center">
+          <AppText variant="title" className="text-center text-white">One last step</AppText>
+          <AppText variant="body" className="text-white/60 text-center">
             Choose a nickname to get started.
           </AppText>
         </View>
@@ -59,6 +66,7 @@ export default function SetupScreen() {
           name="nickname"
           render={({ field: { onChange, value, onBlur } }) => (
             <AppInput
+              tone="glass"
               label="Nickname"
               placeholder="cool-user"
               autoCapitalize="none"
@@ -73,18 +81,14 @@ export default function SetupScreen() {
         />
 
         {isError && (
-          <AppText variant="caption" className="text-red-500">
+          <AppText variant="caption" style={{ color: '#fca5a5' }}>
             {error instanceof ApiError && error.status === 422
               ? 'That nickname is already taken or invalid.'
               : 'Something went wrong. Please try again.'}
           </AppText>
         )}
 
-        <AppButton
-          label="Continue"
-          onPress={submit}
-          loading={isPending}
-        />
+        <AppButton label="Continue" onPress={submit} loading={isPending} />
       </View>
     </AppScreen>
   );

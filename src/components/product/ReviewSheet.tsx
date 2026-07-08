@@ -13,7 +13,6 @@ import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { Image } from 'react-native';
 import { AppText } from '@/components/ui/AppText';
-import { AppButton } from '@/components/ui/AppButton';
 import { StarRating } from './StarRating';
 import { useUpsertReview } from '@/features/products/useUpsertReview';
 import { useDeleteReview } from '@/features/products/useDeleteReview';
@@ -221,24 +220,24 @@ export function ReviewSheet({ visible, productId, userReviewed = false, initialR
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
-        <Pressable style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)' }} onPress={onClose} />
-        <View style={{ backgroundColor: 'white', borderTopLeftRadius: 24, borderTopRightRadius: 24, maxHeight: '92%' }}>
+        <Pressable style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.55)' }} onPress={onClose} />
+        <View style={{ backgroundColor: '#2e1b58', borderTopLeftRadius: 24, borderTopRightRadius: 24, maxHeight: '92%', borderTopWidth: 1, borderColor: 'rgba(255,255,255,0.14)' }}>
           {/* Handle */}
           <View style={{ alignItems: 'center', paddingTop: 12, paddingBottom: 4 }}>
-            <View style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: '#e5e7eb' }} />
+            <View style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.3)' }} />
           </View>
 
           {/* Header */}
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingVertical: 12 }}>
-            <AppText variant="heading">{isEditing ? 'Edit Review' : 'Write a Review'}</AppText>
+            <AppText variant="heading" className="text-white">{isEditing ? 'Edit Review' : 'Write a Review'}</AppText>
             <Pressable onPress={onClose} hitSlop={8}>
-              <Ionicons name="close" size={22} color="#6b7280" />
+              <Ionicons name="close" size={22} color="rgba(255,255,255,0.7)" />
             </Pressable>
           </View>
 
           {loadingExisting ? (
             <View style={{ paddingVertical: 60, alignItems: 'center' }}>
-              <ActivityIndicator size="large" color="#7c3aed" />
+              <ActivityIndicator size="large" color="#ffffff" />
             </View>
           ) : (
             <ScrollView
@@ -247,9 +246,9 @@ export function ReviewSheet({ visible, productId, userReviewed = false, initialR
               contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 32, gap: 24 }}
             >
               {locked && (
-                <View style={{ flexDirection: 'row', gap: 8, backgroundColor: '#fffbeb', borderRadius: 12, padding: 12 }}>
-                  <Ionicons name="lock-closed-outline" size={16} color="#d97706" />
-                  <AppText variant="caption" className="text-amber-700 flex-1">
+                <View style={{ flexDirection: 'row', gap: 8, backgroundColor: 'rgba(251,191,36,0.15)', borderRadius: 12, padding: 12 }}>
+                  <Ionicons name="lock-closed-outline" size={16} color="#fbbf24" />
+                  <AppText variant="caption" className="flex-1" style={{ color: '#fde68a' }}>
                     This review has received helpful votes or reports and can no longer be edited.
                   </AppText>
                 </View>
@@ -264,7 +263,7 @@ export function ReviewSheet({ visible, productId, userReviewed = false, initialR
                     onChange={locked ? undefined : (v) => set('overall_score', v)}
                   />
                   {form.overall_score > 0 && (
-                    <AppText variant="caption" className="text-gray-400 mt-2">
+                    <AppText variant="caption" className="text-white/60 mt-2">
                       {OVERALL_LABELS[form.overall_score - 1]}
                     </AppText>
                   )}
@@ -276,7 +275,7 @@ export function ReviewSheet({ visible, productId, userReviewed = false, initialR
                 <View style={{ gap: 14 }}>
                   {DETAILED_SCORES.map(({ key, label }) => (
                     <View key={key} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <AppText variant="label" className="text-gray-600">{label}</AppText>
+                      <AppText variant="label" className="text-white/70">{label}</AppText>
                       <StarRating
                         score={form[key as keyof UpsertReviewPayload] as number}
                         size={22}
@@ -359,7 +358,7 @@ export function ReviewSheet({ visible, productId, userReviewed = false, initialR
                     />
                     {!locked && (
                       <Pressable onPress={() => set('image_url', null)} style={{ alignSelf: 'flex-start' }}>
-                        <AppText variant="caption" className="text-red-500">Remove photo</AppText>
+                        <AppText variant="caption" style={{ color: '#fca5a5' }}>Remove photo</AppText>
                       </Pressable>
                     )}
                   </View>
@@ -369,7 +368,7 @@ export function ReviewSheet({ visible, productId, userReviewed = false, initialR
                     disabled={uploadingImage}
                     style={{
                       borderWidth: 1.5,
-                      borderColor: '#e5e7eb',
+                      borderColor: 'rgba(255,255,255,0.25)',
                       borderStyle: 'dashed',
                       borderRadius: 12,
                       paddingVertical: 20,
@@ -378,11 +377,11 @@ export function ReviewSheet({ visible, productId, userReviewed = false, initialR
                     }}
                   >
                     {uploadingImage ? (
-                      <ActivityIndicator size="small" color="#9ca3af" />
+                      <ActivityIndicator size="small" color="#ffffff" />
                     ) : (
                       <>
-                        <Ionicons name="camera-outline" size={22} color="#9ca3af" />
-                        <AppText variant="caption" className="text-gray-400">Take a photo</AppText>
+                        <Ionicons name="camera-outline" size={22} color="rgba(255,255,255,0.65)" />
+                        <AppText variant="caption" className="text-white/60">Take a photo</AppText>
                       </>
                     )}
                   </Pressable>
@@ -391,9 +390,9 @@ export function ReviewSheet({ visible, productId, userReviewed = false, initialR
 
               {/* Validation errors */}
               {errors.length > 0 && (
-                <View style={{ backgroundColor: '#fef2f2', borderRadius: 12, padding: 12, gap: 4 }}>
+                <View style={{ backgroundColor: 'rgba(239,68,68,0.15)', borderRadius: 12, padding: 12, gap: 4 }}>
                   {errors.map((e, i) => (
-                    <AppText key={i} variant="caption" className="text-red-600">{e}</AppText>
+                    <AppText key={i} variant="caption" style={{ color: '#fecaca' }}>{e}</AppText>
                   ))}
                 </View>
               )}
@@ -401,19 +400,27 @@ export function ReviewSheet({ visible, productId, userReviewed = false, initialR
               {/* Actions */}
               {!locked && (
                 <View style={{ gap: 10, paddingTop: 4 }}>
-                  <AppButton
-                    label={isEditing ? 'Update Review' : 'Submit Review'}
+                  <Pressable
                     onPress={handleSubmit}
-                    loading={saving}
-                    disabled={uploadingImage}
-                  />
+                    disabled={saving || uploadingImage}
+                    className={`flex-row items-center justify-center rounded-2xl py-4 active:opacity-80 ${saving || uploadingImage ? 'opacity-50' : ''}`}
+                    style={{ backgroundColor: '#7c3aed' }}
+                  >
+                    {saving
+                      ? <ActivityIndicator size="small" color="#ffffff" />
+                      : <AppText variant="label" className="text-white" style={{ fontWeight: '700', fontSize: 16 }}>{isEditing ? 'Update Review' : 'Submit Review'}</AppText>}
+                  </Pressable>
                   {isEditing && (
-                    <AppButton
-                      label={deleteConfirm ? 'Tap again to confirm delete' : 'Delete Review'}
-                      variant="secondary"
+                    <Pressable
                       onPress={handleDelete}
-                      loading={deleting}
-                    />
+                      disabled={deleting}
+                      className="flex-row items-center justify-center rounded-2xl py-3.5 active:opacity-70"
+                      style={{ backgroundColor: 'rgba(239,68,68,0.15)', borderWidth: 1, borderColor: 'rgba(248,113,113,0.4)' }}
+                    >
+                      {deleting
+                        ? <ActivityIndicator size="small" color="#fca5a5" />
+                        : <AppText variant="label" style={{ color: '#fca5a5', fontWeight: '700' }}>{deleteConfirm ? 'Tap again to confirm delete' : 'Delete Review'}</AppText>}
+                    </Pressable>
                   )}
                 </View>
               )}
@@ -441,9 +448,9 @@ function Section({
   return (
     <View style={{ gap: 10 }}>
       <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 4 }}>
-        <AppText variant="label">{title}</AppText>
-        {required && <AppText variant="caption" className="text-red-400">*</AppText>}
-        {subtitle && <AppText variant="caption" className="text-gray-400">{subtitle}</AppText>}
+        <AppText variant="label" className="text-white">{title}</AppText>
+        {required && <AppText variant="caption" style={{ color: '#fca5a5' }}>*</AppText>}
+        {subtitle && <AppText variant="caption" className="text-white/50">{subtitle}</AppText>}
       </View>
       {children}
     </View>
@@ -466,20 +473,20 @@ function MultilineInput({
       value={value}
       onChangeText={onChangeText}
       placeholder={placeholder}
-      placeholderTextColor="#9ca3af"
+      placeholderTextColor="rgba(255,255,255,0.4)"
       multiline
       editable={editable}
       style={{
         borderWidth: 1,
-        borderColor: '#e5e7eb',
+        borderColor: 'rgba(255,255,255,0.15)',
         borderRadius: 12,
         paddingHorizontal: 14,
         paddingVertical: 12,
         fontSize: 14,
-        color: '#111827',
+        color: '#ffffff',
         minHeight: 80,
         textAlignVertical: 'top',
-        backgroundColor: editable ? 'white' : '#f9fafb',
+        backgroundColor: editable ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.04)',
       }}
     />
   );
@@ -507,13 +514,13 @@ function ChipGroup({
               paddingVertical: 8,
               borderRadius: 100,
               borderWidth: 1.5,
-              borderColor: selected ? '#7c3aed' : '#e5e7eb',
-              backgroundColor: selected ? '#f5f3ff' : 'white',
+              borderColor: selected ? '#a78bfa' : 'rgba(255,255,255,0.2)',
+              backgroundColor: selected ? 'rgba(167,139,250,0.25)' : 'transparent',
             }}
           >
             <AppText
               variant="caption"
-              style={{ color: selected ? '#7c3aed' : '#4b5563', fontWeight: '500' }}
+              style={{ color: selected ? '#ffffff' : 'rgba(255,255,255,0.7)', fontWeight: '600' }}
             >
               {opt.label}
             </AppText>
