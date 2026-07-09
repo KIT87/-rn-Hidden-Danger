@@ -9,6 +9,7 @@ import type { BarcodeScanningResult } from 'expo-camera';
 import { AppText, GlassHeader, ScreenGradient } from '@/components/ui';
 import { GLASS } from '@/theme/glass';
 import { productsApi } from '@/features/products/api';
+import { useRecordActivity } from '@/features/gamification/useActivity';
 import { findExactGtinMatch } from '@/features/products/searchMapper';
 
 const { width: SCREEN_W } = Dimensions.get('window');
@@ -102,6 +103,7 @@ function CameraScanner({ onClose, onProductFound, onResults, onNotFound }: Camer
   const [searching, setSearching] = useState(false);
   const scanLock = useRef(false);
   const cameraRef = useRef<CameraView>(null);
+  const recordActivity = useRecordActivity();
 
   useEffect(() => {
     if (permission === null) return;
@@ -129,13 +131,20 @@ function CameraScanner({ onClose, onProductFound, onResults, onNotFound }: Camer
 
     try {
       const response = await productsApi.search({ ean: data, limit: 10 });
-      if (response !== null && response.products.length > 0) {
-        const exact = findExactGtinMatch(response.products, data);
-        if (exact) {
-          onProductFound(exact.product_id);
-        } else {
-          onResults(data);
-        }
+      const hasResults = response !== null && response.products.length > 0;
+      const exact = hasResults ? findExactGtinMatch(response!.products, data) : undefined;
+      // Report the scan (+ resolved product) to history/points, once per scan.
+      recordActivity({
+        type: 'scan',
+        query: data,
+        product_found: !!exact,
+        product_name: exact?.canonical_name ?? null,
+        product_image_url: exact?.image_url ?? null,
+      });
+      if (exact) {
+        onProductFound(exact.product_id);
+      } else if (hasResults) {
+        onResults(data);
       } else {
         onNotFound(data);
       }

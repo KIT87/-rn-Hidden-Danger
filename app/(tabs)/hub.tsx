@@ -1,32 +1,35 @@
-import { useState } from 'react';
-import { ActivityIndicator, Image, Pressable, RefreshControl, Text, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, Image, Pressable, RefreshControl, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { useMutation } from '@tanstack/react-query';
 import { AppCard, AppScreen, AppText } from '@/components/ui';
 import { AppToast, useToast } from '@/components/ui/AppToast';
 import { RiskScore, SearchHistoryRow } from '@/components/product';
 import { StarRating } from '@/components/product/StarRating';
 import { ReviewSheet } from '@/components/product/ReviewSheet';
 import { GLASS } from '@/theme/glass';
-import { authApi } from '@/features/auth/api';
 import { useAuth } from '@/features/auth/AuthContext';
 import { useTopPicks } from '@/features/products/useTopPicks';
 import { useMyReviews } from '@/features/products/useMyReviews';
 import { useSearchHistory } from '@/features/products/useSearchHistory';
-import type { MyReview, ProductSummary } from '@/features/products/types';
+import { useLeaderboardMe, useProfile } from '@/features/products/useProfile';
+import { LeaderRow } from '@/components/leaderboard/parts';
+import type { MyReview, ProductSummary, UserProfile } from '@/features/products/types';
 
 const INITIAL = 3;
 const MAX = 10;
 
 type IconName = React.ComponentProps<typeof Ionicons>['name'];
-type Tab = 'picks' | 'reviews' | 'leaderboard';
+type Tab = 'picks' | 'reviews' | 'leaderboard' | 'activity';
 
+// Short labels so all four fit the segmented control; full names live in each
+// tab's SectionHeading.
 const TABS: { key: Tab; label: string }[] = [
-  { key: 'picks', label: 'My Top Picks' },
-  { key: 'reviews', label: 'My Reviews' },
+  { key: 'picks', label: 'Picks' },
+  { key: 'reviews', label: 'Reviews' },
   { key: 'leaderboard', label: 'Leaderboard' },
+  { key: 'activity', label: 'Activity' },
 ];
 
 const glassCard = {
@@ -64,6 +67,41 @@ function Avatar({ size, color, initial }: { size: number; color: string; initial
   );
 }
 
+// ─── Header profile card ──────────────────────────────────────────────────────
+
+function ProfileCard({ nickname, profile, onPress }: {
+  nickname: string | null;
+  profile: UserProfile | null | undefined;
+  onPress: () => void;
+}) {
+  const name = nickname ?? profile?.nickname ?? null;
+  const initial = (name ?? '?').charAt(0).toUpperCase();
+  return (
+    <Pressable
+      onPress={onPress}
+      className="flex-row items-center gap-2.5 rounded-2xl py-2 pl-2 pr-2.5 active:opacity-80 shrink"
+      style={{ backgroundColor: GLASS.cardBg, borderWidth: 1, borderColor: GLASS.cardBorder, maxWidth: 210 }}
+    >
+      <Avatar size={40} color="#a78bfa" initial={initial} />
+      <View className="gap-0.5 shrink">
+        <AppText variant="label" className="text-white font-bold" numberOfLines={1}>
+          {name ?? '—'}
+        </AppText>
+        <View className="flex-row items-center gap-1">
+          <Ionicons name="trophy" size={12} color="#fbbf24" />
+          <AppText variant="caption" style={{ color: '#fcd34d', fontWeight: '800' }}>
+            {profile ? profile.points_total.toLocaleString() : '—'}
+          </AppText>
+          {profile ? (
+            <AppText variant="caption" className="text-white/45">· #{profile.rank}</AppText>
+          ) : null}
+        </View>
+      </View>
+      <Ionicons name="chevron-forward" size={16} color="rgba(255,255,255,0.6)" />
+    </Pressable>
+  );
+}
+
 // ─── My Top Picks ─────────────────────────────────────────────────────────────
 
 function PickRow({ product, rank, onPress }: { product: ProductSummary; rank: number; onPress: () => void }) {
@@ -88,7 +126,9 @@ function PickRow({ product, rank, onPress }: { product: ProductSummary; rank: nu
         <AppText variant="caption" className="text-white/55" numberOfLines={1}>{product.brand_name}</AppText>
       </View>
       <View className="items-end gap-1 shrink-0">
-        <RiskScore riskScore={product.risk_score} size="sm" />
+        <View>
+          <RiskScore riskScore={product.risk_score} size="sm" />
+        </View>
         <View className="flex-row items-center gap-1">
           <StarRating score={avg !== null ? Math.round(avg) : 0} size={11} />
           {avg !== null && (
@@ -249,85 +289,43 @@ function ReviewsTab({ onProduct, onEdit }: { onProduct: (id: number) => void; on
   );
 }
 
-// ─── Leaderboard (mocked) ─────────────────────────────────────────────────────
+// ─── Leaderboard (your position window) ───────────────────────────────────────
 
-interface LeaderEntry {
-  rank: number;
-  name: string;
-  initial: string;
-  color: string;
-  picks: number;
-  reviews: number;
-  medal?: string;
-  you?: boolean;
-}
+function LeaderboardTab({ onUser, onShowFull }: { onUser: (id: number) => void; onShowFull: () => void }) {
+  const { data, isLoading } = useLeaderboardMe();
+  const rows = data ?? [];
 
-const LEADERBOARD: LeaderEntry[] = [
-  { rank: 1, name: 'glowqueen', initial: 'G', color: '#f59e0b', picks: 142, reviews: 38, medal: '🥇' },
-  { rank: 2, name: 'skinnerds', initial: 'S', color: '#64748b', picks: 118, reviews: 51, medal: '🥈' },
-  { rank: 3, name: 'kitios',    initial: 'K', color: '#f97316', picks: 97,  reviews: 29, medal: '🥉', you: true },
-  { rank: 4, name: 'beautylab', initial: 'B', color: '#8b5cf6', picks: 84,  reviews: 44 },
-  { rank: 5, name: 'pureglow',  initial: 'P', color: '#22c55e', picks: 73,  reviews: 21 },
-];
-
-function PodiumColumn({ entry, avatarSize, pedestalH }: { entry: LeaderEntry; avatarSize: number; pedestalH: number }) {
-  return (
-    <View className="items-center gap-2" style={{ width: 96 }}>
-      <Avatar size={avatarSize} color={entry.color} initial={entry.initial} />
-      <View className="items-center">
-        <AppText variant="label" className="text-white font-bold" numberOfLines={1}>{entry.name}</AppText>
-        <AppText variant="caption" className="text-white/55">{entry.picks} picks</AppText>
-      </View>
-      <View
-        className="w-full items-center"
-        style={{ height: pedestalH, backgroundColor: 'rgba(255,255,255,0.12)', borderTopLeftRadius: 14, borderTopRightRadius: 14, borderWidth: 1, borderColor: GLASS.cardBorder, paddingTop: 8 }}
-      >
-        <Text style={{ fontSize: 24 }}>{entry.medal}</Text>
-      </View>
-    </View>
-  );
-}
-
-function LeaderboardTab() {
-  const [first, second, third] = LEADERBOARD;
   return (
     <View className="gap-4">
-      <SectionHeading icon="stats-chart" iconColor="#ffffff" title="Leaderboard" subtitle="See who's leading the community" />
+      <SectionHeading icon="stats-chart" iconColor="#ffffff" title="Leaderboard" subtitle="Your position in the community" />
 
-      {/* Podium */}
-      <View className="flex-row items-end justify-center gap-2 pt-2">
-        <PodiumColumn entry={second} avatarSize={58} pedestalH={46} />
-        <PodiumColumn entry={first} avatarSize={74} pedestalH={64} />
-        <PodiumColumn entry={third} avatarSize={52} pedestalH={32} />
-      </View>
-
-      {/* Ranked list */}
-      <View className="rounded-3xl overflow-hidden" style={glassCard}>
-        {LEADERBOARD.map((e, i) => (
-          <View key={e.rank}>
-            {i > 0 && <View style={{ height: 1, backgroundColor: 'rgba(255,255,255,0.10)' }} />}
-            <View
-              className="flex-row items-center gap-3 px-4 py-3"
-              style={e.you ? { backgroundColor: 'rgba(255,255,255,0.10)' } : undefined}
-            >
-              <AppText variant="caption" className="text-white/50 font-semibold" style={{ width: 16, textAlign: 'center' }}>{e.rank}</AppText>
-              <Avatar size={34} color={e.color} initial={e.initial} />
-              <View className="flex-1 gap-0.5">
-                <View className="flex-row items-center gap-2">
-                  <AppText variant="label" className="text-white">{e.name}</AppText>
-                  {e.you && (
-                    <View className="rounded-full px-2 py-0.5" style={{ backgroundColor: 'rgba(255,255,255,0.22)' }}>
-                      <AppText variant="caption" className="text-white font-bold" style={{ fontSize: 10 }}>You</AppText>
-                    </View>
-                  )}
-                </View>
-                <AppText variant="caption" className="text-white/55">{e.picks} picks · {e.reviews} reviews</AppText>
-              </View>
-              {e.medal ? <Text style={{ fontSize: 18 }}>{e.medal}</Text> : null}
+      {isLoading ? (
+        <ActivityIndicator color="#ffffff" className="py-6" />
+      ) : rows.length === 0 ? (
+        <AppCard glass>
+          <AppText variant="body" className="text-white/70">No leaderboard data yet.</AppText>
+        </AppCard>
+      ) : (
+        <View className="rounded-3xl overflow-hidden" style={glassCard}>
+          {rows.map((e, i) => (
+            <View key={e.user_id}>
+              {i > 0 && <View style={{ height: 1, backgroundColor: 'rgba(255,255,255,0.10)' }} />}
+              <LeaderRow entry={e} you={e.is_me} onPress={() => onUser(e.user_id)} />
             </View>
-          </View>
-        ))}
-      </View>
+          ))}
+        </View>
+      )}
+
+      {/* Full leaderboard */}
+      <Pressable
+        onPress={onShowFull}
+        className="flex-row items-center justify-center gap-2 rounded-2xl py-3.5 active:opacity-80"
+        style={{ backgroundColor: 'rgba(255,255,255,0.10)', borderWidth: 1, borderColor: GLASS.cardBorder }}
+      >
+        <Ionicons name="podium-outline" size={16} color="#ffffff" />
+        <AppText variant="label" className="text-white font-semibold">Show full leaderboard</AppText>
+        <Ionicons name="chevron-forward" size={15} color="rgba(255,255,255,0.7)" />
+      </Pressable>
     </View>
   );
 }
@@ -362,71 +360,25 @@ function CollapsibleHeader({ icon, title, open, loading, count, onToggle }: {
   );
 }
 
-// ─── Screen ─────────────────────────────────────────────────────────────────
+// ─── My Activity (recent searches & scans) ────────────────────────────────────
 
-export default function HubScreen() {
+function ActivityTab() {
   const router = useRouter();
-  const { toastConfig, showToast } = useToast();
-  const { signOut } = useAuth();
-  const [tab, setTab] = useState<Tab>('picks');
-  const [editingReview, setEditingReview] = useState<MyReview | null>(null);
-
-  const { mutate: logout, isPending: signingOut } = useMutation({ mutationFn: () => authApi.logout() });
-  function handleSignOut() {
-    logout(undefined, {
-      onSettled: async () => {
-        await signOut();
-        router.replace('/(auth)/login');
-      },
-    });
-  }
-
-  // Recent activity (shared across tabs)
-  const [nameOpen, setNameOpen] = useState(false);
+  const [nameOpen, setNameOpen] = useState(true); // recent searches expanded by default
   const [scanOpen, setScanOpen] = useState(false);
   const [moreSearches, setMoreSearches] = useState(false);
   const [moreScans, setMoreScans] = useState(false);
-  const historyEnabled = nameOpen || scanOpen;
-  const { data: history, isFetching: loadingHistory } = useSearchHistory(historyEnabled);
+  const { data: searchHistory, isFetching: loadingSearches } = useSearchHistory('search', nameOpen);
+  const { data: scanHistory, isFetching: loadingScans } = useSearchHistory('scan', scanOpen);
 
-  const nameSearches = history?.filter((h) => h.query_type === 'name') ?? [];
-  const eanScans = history?.filter((h) => h.query_type === 'ean') ?? [];
+  const nameSearches = searchHistory ?? [];
+  const eanScans = scanHistory ?? [];
   const visibleSearches = nameSearches.slice(0, moreSearches ? MAX : INITIAL);
   const visibleScans = eanScans.slice(0, moreScans ? MAX : INITIAL);
 
-  const goProduct = (id: number) => router.push(`/product/${id}` as never);
-
   return (
-    <View className="flex-1">
-    <AppScreen gradient scroll className="gap-5 pb-8 pt-2">
-      <StatusBar style="light" />
-
-      {/* Header */}
-      <View className="gap-1">
-        <AppText variant="title" className="text-white">The Hub</AppText>
-        <AppText variant="body" className="text-white/70">Your community space</AppText>
-      </View>
-
-      {/* Segmented tabs */}
-      <View className="flex-row rounded-full p-1" style={{ backgroundColor: 'rgba(255,255,255,0.10)' }}>
-        {TABS.map((t) => (
-          <Pressable
-            key={t.key}
-            onPress={() => setTab(t.key)}
-            className="flex-1 items-center py-2.5 rounded-full"
-            style={tab === t.key ? { backgroundColor: 'rgba(255,255,255,0.22)' } : undefined}
-          >
-            <AppText variant="caption" numberOfLines={1} className={`font-semibold ${tab === t.key ? 'text-white' : 'text-white/55'}`}>
-              {t.label}
-            </AppText>
-          </Pressable>
-        ))}
-      </View>
-
-      {/* Tab content */}
-      {tab === 'picks' && <PicksTab onProduct={goProduct} />}
-      {tab === 'reviews' && <ReviewsTab onProduct={goProduct} onEdit={setEditingReview} />}
-      {tab === 'leaderboard' && <LeaderboardTab />}
+    <View className="gap-4">
+      <SectionHeading icon="pulse" iconColor="#ffffff" title="My Activity" subtitle="Your recent searches and scans" />
 
       {/* Recent searches */}
       <AppCard glass>
@@ -434,13 +386,13 @@ export default function HubScreen() {
           icon="time-outline"
           title="Recent searches"
           open={nameOpen}
-          loading={nameOpen && loadingHistory}
-          count={history ? nameSearches.length : undefined}
+          loading={nameOpen && loadingSearches}
+          count={searchHistory ? nameSearches.length : undefined}
           onToggle={() => setNameOpen((v) => !v)}
         />
         {nameOpen && (
           <View className="mt-2">
-            {!history ? (
+            {!searchHistory ? (
               <ActivityIndicator color="#ffffff" className="py-4" />
             ) : nameSearches.length === 0 ? (
               <AppText variant="caption" className="text-white/50 py-3">No recent searches</AppText>
@@ -475,13 +427,13 @@ export default function HubScreen() {
           icon="barcode-outline"
           title="Recently scanned"
           open={scanOpen}
-          loading={scanOpen && loadingHistory}
-          count={history ? eanScans.length : undefined}
+          loading={scanOpen && loadingScans}
+          count={scanHistory ? eanScans.length : undefined}
           onToggle={() => setScanOpen((v) => !v)}
         />
         {scanOpen && (
           <View className="mt-2">
-            {!history ? (
+            {!scanHistory ? (
               <ActivityIndicator color="#ffffff" className="py-4" />
             ) : eanScans.length === 0 ? (
               <AppText variant="caption" className="text-white/50 py-3">No recent scans</AppText>
@@ -509,18 +461,73 @@ export default function HubScreen() {
           </View>
         )}
       </AppCard>
+    </View>
+  );
+}
 
-      {/* Sign out */}
-      <Pressable
-        onPress={handleSignOut}
-        disabled={signingOut}
-        className="flex-row items-center justify-center gap-1.5 py-2 active:opacity-50"
-      >
-        <Ionicons name="log-out-outline" size={15} color="rgba(255,255,255,0.6)" />
-        <AppText variant="caption" className="text-white/60">
-          {signingOut ? 'Signing out…' : 'Sign out'}
-        </AppText>
-      </Pressable>
+// ─── Screen ─────────────────────────────────────────────────────────────────
+
+export default function HubScreen() {
+  const router = useRouter();
+  const { toastConfig, showToast } = useToast();
+  const { token, nickname } = useAuth();
+  const { data: profile } = useProfile(!!token);
+  const params = useLocalSearchParams<{ tab?: string }>();
+  const [tab, setTab] = useState<Tab>('picks');
+  const [editingReview, setEditingReview] = useState<MyReview | null>(null);
+
+  // Deep-link the active tab (e.g. "See all" from the Profile screen).
+  useEffect(() => {
+    if (params.tab === 'picks' || params.tab === 'reviews' || params.tab === 'leaderboard' || params.tab === 'activity') {
+      setTab(params.tab);
+    }
+  }, [params.tab]);
+
+  const goProduct = (id: number) => router.push(`/product/${id}` as never);
+  const goUser = (id: number) => router.push(`/user/${id}` as never);
+
+  return (
+    <View className="flex-1">
+    <AppScreen gradient scroll className="gap-5 pb-8 pt-2">
+      <StatusBar style="light" />
+
+      {/* Header + profile card */}
+      <View className="flex-row items-center justify-between gap-3">
+        <View className="gap-1 shrink">
+          <AppText variant="title" className="text-white">The Hub</AppText>
+          <AppText variant="body" className="text-white/70">Your community space</AppText>
+        </View>
+        <ProfileCard
+          nickname={nickname}
+          profile={profile}
+          onPress={() => router.push('/(tabs)/profile' as never)}
+        />
+      </View>
+
+      {/* Segmented tabs */}
+      <View className="flex-row rounded-full p-1" style={{ backgroundColor: 'rgba(255,255,255,0.10)' }}>
+        {TABS.map((t) => (
+          <Pressable
+            key={t.key}
+            onPress={() => setTab(t.key)}
+            className="flex-1 items-center py-2.5 rounded-full"
+            style={tab === t.key ? { backgroundColor: 'rgba(255,255,255,0.22)' } : undefined}
+          >
+            <AppText variant="caption" numberOfLines={1} className={`font-semibold ${tab === t.key ? 'text-white' : 'text-white/55'}`}>
+              {t.label}
+            </AppText>
+          </Pressable>
+        ))}
+      </View>
+
+      {/* Tab content */}
+      {tab === 'picks' && <PicksTab onProduct={goProduct} />}
+      {tab === 'reviews' && <ReviewsTab onProduct={goProduct} onEdit={setEditingReview} />}
+      {tab === 'leaderboard' && (
+        <LeaderboardTab onUser={goUser} onShowFull={() => router.push('/leaderboard' as never)} />
+      )}
+      {tab === 'activity' && <ActivityTab />}
+
     </AppScreen>
 
       {editingReview !== null && (

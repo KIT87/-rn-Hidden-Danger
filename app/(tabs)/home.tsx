@@ -12,21 +12,19 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { AppCard, AppScreen, AppText } from '@/components/ui';
-import { ProductCard, RiskScore, SearchHistoryRow } from '@/components/product';
+import { AppToast, useToast } from '@/components/ui/AppToast';
+import { ProductCard, RiskScore } from '@/components/product';
 import { GLASS } from '@/theme/glass';
 import { useFeaturedProducts } from '@/features/products/useFeaturedProducts';
 import { useRecentlyViewed } from '@/features/products/useRecentlyViewed';
 import { useTopRated } from '@/features/products/useTopRated';
-import { useSearchHistory } from '@/features/products/useSearchHistory';
-import { productsApi } from '@/features/products/api';
-import { findExactGtinMatch } from '@/features/products/searchMapper';
+import { useProfile } from '@/features/products/useProfile';
+import { useDailyAppOpen } from '@/features/gamification/useActivity';
 import { useAuth } from '@/features/auth/AuthContext';
 import type { ProductSummary } from '@/features/products/types';
 
 const CARD_WIDTH = 168;
 const CARD_GAP = 12;
-const INITIAL = 3;
-const MAX = 10;
 
 // ─── Product list row (for vertical sections) ─────────────────────────────────
 
@@ -104,7 +102,11 @@ function SectionHeader({ children, action }: { children: React.ReactNode; action
 
 export default function HomeScreen() {
   const router = useRouter();
-  const { nickname } = useAuth();
+  const { nickname, token } = useAuth();
+  const { toastConfig, showToast } = useToast();
+
+  const { data: profile } = useProfile(!!token);
+  useDailyAppOpen((streak) => showToast(`🔥 ${streak} day streak!`, 'success'));
 
   const { products, initialLoading, loading: loadingMoreProducts, hasMore, reload, loadMore } = useFeaturedProducts();
   useEffect(() => { reload(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -124,51 +126,21 @@ export default function HomeScreen() {
     prevProductCount.current = products.length;
   }, [products.length]);
 
-  const [recentlyViewedOpen, setRecentlyViewedOpen] = useState(false);
+  const [recentlyViewedOpen, setRecentlyViewedOpen] = useState(true); // expanded by default
   const { data: recentlyViewed, isFetching: loadingRecentlyViewed, refetch: refetchRecentlyViewed } = useRecentlyViewed(recentlyViewedOpen);
 
-  const [nameOpen, setNameOpen] = useState(false);
-  const [scanOpen, setScanOpen] = useState(false);
-  const historyEnabled = nameOpen || scanOpen;
-  const { data: history, isFetching: loadingHistory, refetch: refetchHistory } = useSearchHistory(historyEnabled);
-
   const [refreshing, setRefreshing] = useState(false);
-  const [moreSearches, setMoreSearches] = useState(false);
-  const [moreScans, setMoreScans] = useState(false);
-  const [loadingEan, setLoadingEan] = useState<string | null>(null);
 
   async function onRefresh() {
     setRefreshing(true);
     const promises: Promise<unknown>[] = [reload(), refetchTopRated()];
     if (recentlyViewedOpen) promises.push(refetchRecentlyViewed());
-    if (historyEnabled) promises.push(refetchHistory());
     await Promise.all(promises);
     setRefreshing(false);
   }
 
-  async function openEanResult(ean: string) {
-    setLoadingEan(ean);
-    try {
-      const response = await productsApi.search({ ean, limit: 10 });
-      const exact = response ? findExactGtinMatch(response.products, ean) : undefined;
-      if (exact) {
-        router.push(`/product/${exact.product_id}` as never);
-      } else {
-        router.push({ pathname: '/search/ean', params: { code: ean } });
-      }
-    } catch {
-      router.push({ pathname: '/search/ean', params: { code: ean } });
-    } finally {
-      setLoadingEan(null);
-    }
-  }
-
-  const nameSearches = history?.filter((h) => h.query_type === 'name') ?? [];
-  const eanScans = history?.filter((h) => h.query_type === 'ean') ?? [];
-  const visibleSearches = nameSearches.slice(0, moreSearches ? MAX : INITIAL);
-  const visibleScans = eanScans.slice(0, moreScans ? MAX : INITIAL);
-
   return (
+    <View className="flex-1">
     <AppScreen
       gradient
       scroll
@@ -178,11 +150,26 @@ export default function HomeScreen() {
       <StatusBar style="light" />
 
       {/* Greeting */}
-      <View className="pt-2 gap-1">
-        <AppText variant="title" className="text-white">Hi, {nickname ?? 'there'} 👋</AppText>
-        <AppText variant="body" className="text-white/70">
-          What are you checking today?
-        </AppText>
+      <View className="pt-2 flex-row items-start justify-between gap-3">
+        <View className="flex-1 gap-1">
+          <AppText variant="title" className="text-white">Hi, {nickname ?? 'there'} 👋</AppText>
+          <AppText variant="body" className="text-white/70">
+            What are you checking today?
+          </AppText>
+        </View>
+        {profile && profile.current_streak > 0 && (
+          <Pressable
+            onPress={() => router.push('/(tabs)/profile' as never)}
+            hitSlop={8}
+            className="flex-row items-center gap-1.5 rounded-full px-3 py-2 active:opacity-70"
+            style={{ backgroundColor: 'rgba(251,146,60,0.18)', borderWidth: 1, borderColor: 'rgba(251,146,60,0.35)' }}
+          >
+            <Ionicons name="flame" size={15} color="#fb923c" />
+            <AppText variant="caption" className="font-extrabold" style={{ color: '#fb923c' }}>
+              {profile.current_streak}
+            </AppText>
+          </Pressable>
+        )}
       </View>
 
       {/* Find Product card */}
@@ -345,94 +332,19 @@ export default function HomeScreen() {
         )}
       </AppCard>
 
-      {/* Recent name searches */}
-      <AppCard glass>
-        <CollapsibleHeader
-          icon="time-outline"
-          title="Recent searches"
-          open={nameOpen}
-          loading={nameOpen && loadingHistory}
-          count={history ? nameSearches.length : undefined}
-          onToggle={() => setNameOpen((v) => !v)}
-        />
-        {nameOpen && (
-          <View className="mt-2">
-            {!history ? (
-              <ActivityIndicator color="#ffffff" className="py-4" />
-            ) : nameSearches.length === 0 ? (
-              <AppText variant="caption" className="text-white/50 py-3">No recent searches</AppText>
-            ) : (
-              <>
-                <View className="divide-y divide-white/10">
-                  {visibleSearches.map((item, i) => (
-                    <SearchHistoryRow
-                      key={i}
-                      item={item}
-                      tone="glass"
-                      onPress={() =>
-                        router.push(`/search/name?query=${encodeURIComponent(item.query)}` as never)
-                      }
-                    />
-                  ))}
-                </View>
-                {nameSearches.length > INITIAL && (
-                  <Pressable onPress={() => setMoreSearches((v) => !v)} hitSlop={8} className="pt-2">
-                    <AppText variant="caption" className="text-white/90 font-semibold">
-                      {moreSearches ? 'Show less' : `${nameSearches.length - INITIAL} more`}
-                    </AppText>
-                  </Pressable>
-                )}
-              </>
-            )}
-          </View>
-        )}
-      </AppCard>
-
-      {/* Recently scanned */}
-      <AppCard glass>
-        <CollapsibleHeader
-          icon="barcode-outline"
-          title="Recently scanned"
-          open={scanOpen}
-          loading={scanOpen && loadingHistory}
-          count={history ? eanScans.length : undefined}
-          onToggle={() => setScanOpen((v) => !v)}
-        />
-        {scanOpen && (
-          <View className="mt-2">
-            {!history ? (
-              <ActivityIndicator color="#ffffff" className="py-4" />
-            ) : eanScans.length === 0 ? (
-              <AppText variant="caption" className="text-white/50 py-3">No recent scans</AppText>
-            ) : (
-              <>
-                <View className="divide-y divide-white/10">
-                  {visibleScans.map((item, i) => (
-                    <SearchHistoryRow
-                      key={i}
-                      item={item}
-                      tone="glass"
-                      loading={loadingEan === item.query}
-                      onPress={() =>
-                        item.product_found
-                          ? openEanResult(item.query)
-                          : router.push({ pathname: '/search/ean', params: { code: item.query } })
-                      }
-                    />
-                  ))}
-                </View>
-                {eanScans.length > INITIAL && (
-                  <Pressable onPress={() => setMoreScans((v) => !v)} hitSlop={8} className="pt-2">
-                    <AppText variant="caption" className="text-white/90 font-semibold">
-                      {moreScans ? 'Show less' : `${eanScans.length - INITIAL} more`}
-                    </AppText>
-                  </Pressable>
-                )}
-              </>
-            )}
-          </View>
-        )}
-      </AppCard>
+      {/* See my activity → Hub */}
+      <Pressable
+        onPress={() => router.push({ pathname: '/(tabs)/hub', params: { tab: 'activity' } } as never)}
+        className="flex-row items-center justify-center gap-2 rounded-2xl py-3.5 active:opacity-80"
+        style={{ backgroundColor: GLASS.cardBg, borderWidth: 1, borderColor: GLASS.cardBorder }}
+      >
+        <Ionicons name="pulse" size={16} color="#ffffff" />
+        <AppText variant="label" className="text-white font-semibold">See my activity</AppText>
+        <Ionicons name="chevron-forward" size={15} color="rgba(255,255,255,0.7)" />
+      </Pressable>
     </AppScreen>
+
+      <AppToast config={toastConfig} />
+    </View>
   );
 }

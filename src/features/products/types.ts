@@ -117,15 +117,48 @@ export interface Ingredient {
   hazard_level: HazardLevel;
 }
 
-// Per-category hazard severity breakdown (product detail only). Each value is a
-// severity 1–3, or null when the product has no known concern in that category.
-export interface HazardCategories {
-  allergy: HazardSeverity | null;
-  irritation: HazardSeverity | null;
-  cancer: HazardSeverity | null;
-  endocrine: HazardSeverity | null;
-  environmental: HazardSeverity | null;
-  other: HazardSeverity | null;
+// Per-category hazard breakdown (product detail only). `severity` is the
+// product-level max per category (1–3, or null when no known concern). `prof`
+// (publication-backed) is true when at least one displayed ingredient has a
+// current warning in that category backed by publications — drill down via
+// productsApi.hazardCategory (endpoint 5c).
+export interface HazardCategory {
+  severity: HazardSeverity | null;
+  prof: boolean;
+}
+
+export type HazardCategoryKey =
+  | 'allergy'
+  | 'irritation'
+  | 'cancer'
+  | 'endocrine'
+  | 'environmental'
+  | 'other';
+
+export type HazardCategories = Record<HazardCategoryKey, HazardCategory>;
+
+// ─── Publications (endpoint 5b / 5c) ────────────────────────────────────────
+export interface Publication {
+  url: string | null;
+  year: string | null;
+  label: string | null;
+  authority: string | null;
+}
+
+export interface HazardCategoryIngredient {
+  ingredient_id: number;
+  name: string;
+  severity: HazardSeverity | null;
+  publications: Publication[];
+}
+
+// GET products/:product_id/hazard_categories/:hazard_category (5c)
+export interface HazardCategoryDetail {
+  product_id: number;
+  hazard_category: HazardCategoryKey;
+  severity: HazardSeverity | null;
+  prof: boolean;
+  ingredients: HazardCategoryIngredient[];
 }
 
 export interface ProductDetail extends ProductSummary {
@@ -154,8 +187,89 @@ export interface AppStats {
   other_risk_products: number;
 }
 
+// GET profile — the signed-in user's gamification profile (points, rank, streaks,
+// activity tallies). See also the mocked Leaderboard tab in the Hub.
+export interface UserProfile {
+  user_id: number;
+  nickname: string;
+  points_total: number;
+  rank: number;
+  current_streak: number;
+  longest_streak: number;
+  total_reviews: number;
+  total_picks: number;
+  total_scans: number;
+  total_searches: number;
+}
+
+// GET profile/picks — the caller's picked products, offset-paginated (10/page).
+// Prose in the API doc: "full product summary (same shape as search results)".
+export interface ProfilePicksResponse {
+  offset: number;
+  limit: number;
+  total_count: number;
+  picks: ProductSummary[];
+}
+
+// GET profile/reviews — a lighter review summary than the full Review (no score
+// breakdown, images, buy_again, or lock/hidden flags), offset-paginated (10/page).
+export interface ProfileReviewSummary {
+  review_id: number;
+  product_id: number;
+  product_name: string;
+  overall_score: number;
+  review_text: string;
+  helpful_count: number;
+  created_at: string;
+}
+
+export interface ProfileReviewsResponse {
+  offset: number;
+  limit: number;
+  total_count: number;
+  reviews: ProfileReviewSummary[];
+}
+
+// POST activities — client-driven gamification events. `scan`/`search` each award
+// a point; `app_open` advances the daily streak (same-day repeat is a server no-op).
+export type ActivityType = 'scan' | 'search' | 'app_open';
+
+// Recorded via POST activities. `query` (+ resolved product, for scans) is
+// optional — when present the server also saves it to search/scan history.
+export interface ActivityPayload {
+  type: ActivityType;
+  query?: string;
+  product_found?: boolean | null;
+  product_name?: string | null;
+  product_image_url?: string | null;
+}
+
+export interface ActivityResponse {
+  points_total: number;
+  current_streak: number;
+  longest_streak: number;
+}
+
+// GET leaderboard — top players ranked by points_total desc. Rows carry user_id
+// so entries can deep-link to the corresponding user profile.
+export interface LeaderboardEntry {
+  rank: number;
+  user_id: number;
+  nickname: string;
+  points_total: number;
+}
+
+// GET leaderboard/me — a window of rows around the caller (a few above, more
+// below), each flagged with whether it's the caller's own row.
+export interface LeaderboardMeRow extends LeaderboardEntry {
+  is_me: boolean;
+}
+
+// GET search/history — recent scans & text searches (client-populated via
+// POST activities). `type` is `scan` (barcode/EAN lookup) or `search` (text).
+// `product_*` are populated for resolved scans, null for text searches.
 export interface SearchHistoryItem {
-  query_type: 'ean' | 'name';
+  type: 'scan' | 'search';
   query: string;
   product_found: boolean | null;
   product_name: string | null;
@@ -174,6 +288,7 @@ export type ReportReason = 'spam' | 'offensive' | 'fake_review';
 export interface Review {
   review_id: number;
   product_id: number;
+  user_id: number;
   user_nickname: string;
   overall_score: number;
   performance_score: number;

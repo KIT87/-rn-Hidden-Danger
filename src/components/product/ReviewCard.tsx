@@ -9,6 +9,8 @@ import type { PurchaseSource, Review, UsageAmount, UsageDuration } from '@/featu
 interface ReviewCardProps {
   review: Review;
   onReport: () => void;
+  /** Open the reviewer's public profile. Omit to render the name non-tappable. */
+  onOpenProfile?: (userId: number) => void;
 }
 
 const AVATAR_COLORS = ['#6366f1', '#ec4899', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6'];
@@ -91,11 +93,12 @@ function DetailField({ label, value }: { label: string; value?: string | null })
   );
 }
 
-export function ReviewCard({ review, onReport }: ReviewCardProps) {
+export function ReviewCard({ review, onReport, onOpenProfile }: ReviewCardProps) {
   const [expanded, setExpanded] = useState(false);
   const nickname = review.user_nickname ?? 'Anonymous';
   const initial = nickname.charAt(0).toUpperCase();
   const color = avatarColor(nickname);
+  const canOpenProfile = !!onOpenProfile && review.user_id != null;
 
   return (
     <View
@@ -118,22 +121,33 @@ export function ReviewCard({ review, onReport }: ReviewCardProps) {
       <View className="p-4 gap-3">
         {/* Avatar + name/duration + stars */}
         <View className="flex-row items-start gap-3">
-          <View className="w-10 h-10 rounded-full items-center justify-center shrink-0" style={{ backgroundColor: color }}>
-            <AppText variant="label" className="text-white font-bold">{initial}</AppText>
-          </View>
-          <View className="flex-1 gap-0.5">
-            <View className="flex-row items-center justify-between">
-              <AppText variant="label" className="text-white">{nickname}</AppText>
-              {!review.user_is_owner && (
-                <Pressable onPress={onReport} hitSlop={10} className="p-1 -mr-1">
-                  <Ionicons name="flag-outline" size={13} color="rgba(255,255,255,0.4)" />
-                </Pressable>
-              )}
+          <Pressable
+            onPress={canOpenProfile ? () => onOpenProfile!(review.user_id) : undefined}
+            disabled={!canOpenProfile}
+            className="flex-row items-start gap-3 flex-1 active:opacity-70"
+          >
+            <View className="w-10 h-10 rounded-full items-center justify-center shrink-0" style={{ backgroundColor: color }}>
+              <AppText variant="label" className="text-white font-bold">{initial}</AppText>
             </View>
-            <AppText variant="caption" className="text-white/50">
-              {USAGE_LABELS[review.usage_duration]}
-            </AppText>
-          </View>
+            <View className="flex-1 gap-0.5">
+              <View className="flex-row items-center justify-between">
+                <View className="flex-row items-center gap-1 shrink">
+                  <AppText variant="label" className="text-white" numberOfLines={1}>{nickname}</AppText>
+                  {canOpenProfile && (
+                    <Ionicons name="chevron-forward" size={13} color="rgba(255,255,255,0.4)" />
+                  )}
+                </View>
+                {!review.user_is_owner && (
+                  <Pressable onPress={onReport} hitSlop={10} className="p-1 -mr-1">
+                    <Ionicons name="flag-outline" size={13} color="rgba(255,255,255,0.4)" />
+                  </Pressable>
+                )}
+              </View>
+              <AppText variant="caption" className="text-white/50">
+                {USAGE_LABELS[review.usage_duration]}
+              </AppText>
+            </View>
+          </Pressable>
           <View className="items-end gap-0.5 shrink-0">
             <StarRating score={review.overall_score} size={14} />
             <AppText variant="caption" className="text-white/50" style={{ fontSize: 11 }}>

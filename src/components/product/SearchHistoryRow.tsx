@@ -12,7 +12,7 @@ interface SearchHistoryRowProps {
 }
 
 export function SearchHistoryRow({ item, loading = false, tone = 'light', onPress }: SearchHistoryRowProps) {
-  const isEan = item.query_type === 'ean';
+  const isEan = item.type === 'scan';
   const glass = tone === 'glass';
 
   return (

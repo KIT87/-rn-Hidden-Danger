@@ -8,73 +8,63 @@ import { AppText, GlassHeader, ScreenGradient } from '@/components/ui';
 import { ProductCard } from '@/components/product';
 import { GLASS } from '@/theme/glass';
 import { productsApi } from '@/features/products/api';
-import { catalogToSummary, findExactGtinMatch } from '@/features/products/searchMapper';
+import { useRecordActivity } from '@/features/gamification/useActivity';
+import { catalogToSummary } from '@/features/products/searchMapper';
 import type { ProductSummary } from '@/features/products/types';
 
 const SEARCH_LIMIT = 10;
 const { width: SCREEN_W } = Dimensions.get('window');
-const CARD_W = Math.floor((SCREEN_W - 32 - 12) / 2);
+const CARD_W = Math.floor((SCREEN_W - 32 - 12) / 2); // 16px padding each side, 12px gap
 
-export default function EanSearchScreen() {
+export default function NameSearchScreen() {
   const router = useRouter();
-  const { code } = useLocalSearchParams<{ code?: string }>();
-  const [ean, setEan] = useState(code ?? '');
-  const [searchedEan, setSearchedEan] = useState('');
-  const [results, setResults] = useState<ProductSummary[]>([]);
+  const { query: initialQuery } = useLocalSearchParams<{ query?: string }>();
+  const [query, setQuery] = useState(initialQuery ?? '');
+  const [searchedQuery, setSearchedQuery] = useState('');
+  const [results, setResults] = useState<ProductSummary[] | null>(null);
   const [hasMore, setHasMore] = useState(false);
   const [searched, setSearched] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
+  const recordActivity = useRecordActivity();
 
   const { mutate, isPending } = useMutation({
-    mutationFn: (value: string) => productsApi.search({ ean: value, limit: SEARCH_LIMIT }),
-    onSuccess: (data, value) => {
-      if (!data || data.products.length === 0) {
-        setResults([]);
-        setHasMore(false);
-        setSearched(true);
-        return;
-      }
-      // Exact GTIN hit → jump straight to the product (replace so back doesn't
-      // return to this loading screen).
-      const exact = findExactGtinMatch(data.products, value);
-      if (exact) {
-        router.replace(`/product/${exact.product_id}` as never);
-        return;
-      }
-      setResults(data.products.map(catalogToSummary));
-      setHasMore(data.truncated);
+    mutationFn: (value: string) => productsApi.search({ name: value, limit: SEARCH_LIMIT }),
+    onSuccess: (data) => {
+      setResults(data ? data.products.map(catalogToSummary) : []);
+      setHasMore(data?.truncated ?? false);
       setSearched(true);
     },
   });
 
   useEffect(() => {
-    if (code) {
-      setSearchedEan(code);
-      mutate(code);
+    if (initialQuery) {
+      setSearchedQuery(initialQuery);
+      mutate(initialQuery);
     }
   }, []);
 
   function handleSearch() {
-    if (!ean.trim()) return;
-    const trimmed = ean.trim();
-    setSearchedEan(trimmed);
-    setResults([]);
+    if (!query.trim()) return;
+    const trimmed = query.trim();
+    setSearchedQuery(trimmed);
+    setResults(null);
     setHasMore(false);
     setSearched(false);
+    recordActivity({ type: 'search', query: trimmed }); // user-initiated search
     mutate(trimmed);
   }
 
   async function handleLoadMore() {
-    if (loadingMore || !hasMore) return;
+    if (loadingMore || !hasMore || !results) return;
     setLoadingMore(true);
     try {
       const data = await productsApi.search({
-        ean: searchedEan,
+        name: searchedQuery,
         limit: SEARCH_LIMIT,
         offset: results.length,
       });
       if (data) {
-        setResults((prev) => [...prev, ...data.products.map(catalogToSummary)]);
+        setResults((prev) => [...(prev ?? []), ...data.products.map(catalogToSummary)]);
         setHasMore(data.truncated);
       }
     } catch {
@@ -84,13 +74,13 @@ export default function EanSearchScreen() {
     }
   }
 
-  const disabled = !ean.trim();
+  const disabled = !query.trim();
 
   return (
     <View className="flex-1">
       <ScreenGradient />
       <StatusBar style="light" />
-      <GlassHeader title="Enter barcode" onBack={() => router.back()} />
+      <GlassHeader title="Search by name" onBack={() => router.back()} />
 
       <ScrollView
         className="flex-1"
@@ -98,29 +88,29 @@ export default function EanSearchScreen() {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        {/* Barcode field */}
+        {/* Search field */}
         <View className="gap-2">
           <AppText variant="caption" className="text-white/70 font-medium" style={{ letterSpacing: 0.5 }}>
-            Barcode number
+            Product name
           </AppText>
           <View
             className="flex-row items-center gap-2.5 rounded-2xl px-4 py-3.5"
             style={{ backgroundColor: GLASS.cardBg, borderWidth: 1, borderColor: GLASS.cardBorder }}
           >
-            <Ionicons name="barcode-outline" size={18} color="rgba(255,255,255,0.7)" />
+            <Ionicons name="search-outline" size={18} color="rgba(255,255,255,0.7)" />
             <TextInput
-              value={ean}
-              onChangeText={setEan}
-              placeholder="e.g. 012044009285"
+              value={query}
+              onChangeText={setQuery}
+              placeholder="e.g. CeraVe Moisturizing Cream"
               placeholderTextColor="rgba(255,255,255,0.45)"
-              keyboardType="number-pad"
               onSubmitEditing={handleSearch}
               returnKeyType="search"
+              autoFocus={!initialQuery}
               className="flex-1"
               style={{ color: '#ffffff', fontSize: 15, paddingVertical: 0 }}
             />
-            {ean.length > 0 && (
-              <Pressable onPress={() => setEan('')} hitSlop={8}>
+            {query.length > 0 && (
+              <Pressable onPress={() => setQuery('')} hitSlop={8}>
                 <Ionicons name="close" size={18} color="rgba(255,255,255,0.6)" />
               </Pressable>
             )}
@@ -140,45 +130,18 @@ export default function EanSearchScreen() {
 
         {searched && !isPending && (
           <View className="gap-3">
-            {/* Similar products banner (shown whenever we fall back to a list) */}
-            {results.length > 0 && (
-              <View
-                className="flex-row items-start gap-2.5 rounded-2xl px-4 py-3"
-                style={{ backgroundColor: 'rgba(251,191,36,0.18)', borderWidth: 1, borderColor: 'rgba(251,191,36,0.4)' }}
-              >
-                <Ionicons name="information-circle" size={18} color="#fde68a" style={{ marginTop: 1 }} />
-                <AppText variant="caption" className="flex-1" style={{ color: '#fde68a' }}>
-                  No exact match found. Showing similar products.
+            {results === null || results.length === 0 ? (
+              <View className="items-center py-10 gap-3">
+                <Ionicons name="search-circle-outline" size={48} color="rgba(255,255,255,0.4)" />
+                <AppText variant="body" className="text-white/60 text-center">
+                  No products found for "{searchedQuery}".
                 </AppText>
-              </View>
-            )}
-
-            {results.length === 0 ? (
-              <View className="items-center py-10 gap-4">
-                <View className="w-24 h-24 rounded-full items-center justify-center" style={{ backgroundColor: 'rgba(239,68,68,0.2)' }}>
-                  <Ionicons name="barcode-outline" size={44} color="#fca5a5" />
-                </View>
-                <View className="items-center gap-2">
-                  <AppText variant="heading" className="text-white text-center">
-                    Product not found
-                  </AppText>
-                  <AppText variant="body" className="text-white/60 text-center">
-                    No product matched this barcode
-                  </AppText>
-                  <View className="rounded-xl px-4 py-2 mt-1" style={{ backgroundColor: 'rgba(255,255,255,0.12)' }}>
-                    <AppText variant="caption" className="text-white/70 text-center font-mono">
-                      {searchedEan}
-                    </AppText>
-                  </View>
-                </View>
               </View>
             ) : (
               <>
                 <AppText variant="caption" className="text-white/60">
-                  {results.length} similar product{results.length !== 1 ? 's' : ''}
-                  {hasMore ? '+' : ''}
+                  {results.length} result{results.length !== 1 ? 's' : ''}{hasMore ? '+' : ''} found
                 </AppText>
-
                 <View className="flex-row flex-wrap gap-3">
                   {results.map((p) => (
                     <ProductCard

@@ -1,14 +1,22 @@
 import { api, searchApi } from '@/api/client';
 import type {
+  ActivityPayload,
+  ActivityResponse,
   AppStats,
   CatalogSearchRequest,
   CatalogSearchResponse,
+  HazardCategoryDetail,
+  HazardCategoryKey,
   HelpfulResponse,
   ImageUploadUrlResponse,
+  LeaderboardEntry,
+  LeaderboardMeRow,
   MyReviewsResponse,
   PickResponse,
   ProductDetail,
   ProductSummary,
+  ProfilePicksResponse,
+  ProfileReviewsResponse,
   ReportReason,
   Review,
   ReviewsResponse,
@@ -16,6 +24,7 @@ import type {
   TopPicksResponse,
   TopRatedProduct,
   UpsertReviewPayload,
+  UserProfile,
 } from './types';
 
 export const productsApi = {
@@ -25,10 +34,28 @@ export const productsApi = {
   topRated: (limit = 10, offset = 0) =>
     api.get<TopRatedProduct[]>(`products/top_rated?limit=${limit}&offset=${offset}`),
   detail: (id: number) => api.get<ProductDetail>(`products/${id}`),
+  hazardCategory: (productId: number, category: HazardCategoryKey) =>
+    api.get<HazardCategoryDetail>(`products/${productId}/hazard_categories/${category}`),
   search: (body: CatalogSearchRequest) =>
     searchApi.search<CatalogSearchResponse>({ include_images: true, ...body }),
-  history: () => api.get<SearchHistoryItem[]>('search/history'),
+  history: (type?: 'scan' | 'search') =>
+    api.get<SearchHistoryItem[]>(`search/history${type ? `?type=${type}` : ''}`),
   stats: () => api.get<AppStats>('stats'),
+  profile: () => api.get<UserProfile>('profile'),
+  profilePicks: (offset = 0) =>
+    api.get<ProfilePicksResponse>(`profile/picks?offset=${offset}`),
+  profileReviews: (offset = 0) =>
+    api.get<ProfileReviewsResponse>(`profile/reviews?offset=${offset}`),
+  userProfile: (id: number) => api.get<UserProfile>(`users/${id}/profile`),
+  userPicks: (id: number, offset = 0) =>
+    api.get<ProfilePicksResponse>(`users/${id}/picks?offset=${offset}`),
+  userReviews: (id: number, offset = 0) =>
+    api.get<ProfileReviewsResponse>(`users/${id}/reviews?offset=${offset}`),
+  leaderboard: (offset = 0) =>
+    api.get<LeaderboardEntry[]>(`leaderboard?offset=${offset}`),
+  leaderboardMe: () => api.get<LeaderboardMeRow[]>('leaderboard/me'),
+  recordActivity: (payload: ActivityPayload) =>
+    api.post<ActivityResponse>('activities', payload),
   picks: () => api.get<TopPicksResponse>('picks'),
   addPick: (id: number) => api.post<PickResponse>(`products/${id}/pick`),
   removePick: (id: number) => api.delete<PickResponse>(`products/${id}/pick`),

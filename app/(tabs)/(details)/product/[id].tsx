@@ -3,6 +3,8 @@ import {
   ActivityIndicator,
   Dimensions,
   Image,
+  Linking,
+  Modal,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -25,10 +27,14 @@ import { useProduct } from '@/features/products/useProduct';
 import { useTogglePick } from '@/features/products/useTogglePick';
 import { useProductReviews } from '@/features/products/useProductReviews';
 import { useReportReview } from '@/features/products/useReportReview';
+import { useHazardCategory } from '@/features/products/useHazardCategory';
 import type {
   HazardCategories,
+  HazardCategoryIngredient,
+  HazardCategoryKey,
   HazardSeverity,
   Ingredient,
+  Publication,
   ReportReason,
 } from '@/features/products/types';
 
@@ -40,6 +46,13 @@ const { width: SCREEN_W } = Dimensions.get('window');
 const HERO_H = 260;
 const HERO_FADE_H = Math.round(HERO_H * 0.55);
 const HERO_PAD = 20; // breathing room above/below the product image
+
+// Fixed two-column width for hazard-breakdown cards so they stay equal-sized
+// regardless of how many are shown (a lone trailing card left-aligns, same
+// width as the rest). Available = SCREEN_W − px-4 (16·2) − card p-5 (20·2) − 12 gap.
+// The −2 is a safety margin so subpixel rounding never wraps a row to one card.
+const HAZARD_GAP = 12;
+const HAZARD_CARD_W = Math.floor((SCREEN_W - 32 - 40 - HAZARD_GAP) / 2) - 2;
 
 // Frosted-glass surface for content cards over the gradient.
 const glassCard = {
@@ -91,14 +104,30 @@ const SEVERITY_STYLE: Record<HazardSeverity, { label: string; solid: string; car
   3: { label: 'HIGH',     solid: '#ef4444', cardBg: 'rgba(239,68,68,0.30)',  border: 'rgba(248,113,113,0.85)', onSolid: '#ffffff' },
 };
 
-function HazardCategoryCard({ label, icon, severity }: {
+// A flagged hazard category resolved for display (severity narrowed to non-null).
+type FlaggedCategory = {
+  key: HazardCategoryKey;
   label: string;
   icon: IconName;
   severity: HazardSeverity;
+  prof: boolean;
+};
+
+function HazardCategoryCard({ label, icon, severity, prof, onPress }: {
+  label: string;
+  icon: IconName;
+  severity: HazardSeverity;
+  prof: boolean;
+  onPress?: () => void;
 }) {
   const s = SEVERITY_STYLE[severity];
+  const Container = prof ? Pressable : View;
   return (
-    <View className="flex-1 rounded-2xl p-3.5 gap-3" style={{ backgroundColor: s.cardBg, borderWidth: 1.5, borderColor: s.border }}>
+    <Container
+      onPress={prof ? onPress : undefined}
+      className="rounded-2xl p-3.5 gap-3 active:opacity-80"
+      style={{ width: HAZARD_CARD_W, minHeight: 92, backgroundColor: s.cardBg, borderWidth: 1.5, borderColor: s.border }}
+    >
       <View className="flex-row items-center justify-between">
         <Ionicons name={icon} size={18} color="#ffffff" />
         <View className="rounded-full px-2 py-0.5" style={{ backgroundColor: s.solid }}>
@@ -107,8 +136,170 @@ function HazardCategoryCard({ label, icon, severity }: {
           </AppText>
         </View>
       </View>
-      <AppText variant="caption" className="font-semibold text-white">{label}</AppText>
+      <View className="flex-row items-center justify-between">
+        <AppText variant="caption" className="font-semibold text-white">{label}</AppText>
+        {/* Publication-backed: book icon + chevron signal a tappable drill-down. */}
+        {prof ? (
+          <View className="flex-row items-center gap-1">
+            <Ionicons name="book" size={13} color="rgba(255,255,255,0.9)" />
+            <Ionicons name="chevron-forward" size={13} color="rgba(255,255,255,0.7)" />
+          </View>
+        ) : null}
+      </View>
+    </Container>
+  );
+}
+
+// ─── Publication proof modal (endpoint 5c) ──────────────────────────────────
+
+function PublicationCard({ pub }: { pub: Publication }) {
+  const href = pub.url;
+  const displayUrl = href ? href.replace(/^https?:\/\/(www\.)?/, '') : null;
+
+  return (
+    <Pressable
+      onPress={href ? () => Linking.openURL(href).catch(() => {}) : undefined}
+      className="rounded-2xl p-3.5 gap-2.5 active:opacity-80"
+      style={{ backgroundColor: 'rgba(255,255,255,0.05)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)' }}
+    >
+      {(pub.authority || pub.year) ? (
+        <View className="flex-row items-center gap-2 flex-wrap">
+          {pub.authority ? (
+            <View className="rounded-full px-2.5 py-1" style={{ backgroundColor: 'rgba(167,139,250,0.28)', borderWidth: 1, borderColor: 'rgba(167,139,250,0.5)' }}>
+              <AppText variant="caption" className="text-white" style={{ fontWeight: '700', fontSize: 11 }}>{pub.authority}</AppText>
+            </View>
+          ) : null}
+          {pub.year ? (
+            <View className="rounded-full px-2.5 py-1" style={{ backgroundColor: 'rgba(255,255,255,0.10)' }}>
+              <AppText variant="caption" className="text-white/70" style={{ fontSize: 11 }}>{pub.year}</AppText>
+            </View>
+          ) : null}
+        </View>
+      ) : null}
+      {pub.label ? (
+        <AppText variant="label" className="text-white font-semibold" style={{ lineHeight: 20 }}>{pub.label}</AppText>
+      ) : null}
+      {displayUrl ? (
+        <View className="flex-row items-center gap-2 rounded-xl px-3 py-2" style={{ backgroundColor: 'rgba(0,0,0,0.22)' }}>
+          <Ionicons name="link" size={13} color="#c4b5fd" />
+          <AppText variant="caption" className="flex-1 text-white/60" numberOfLines={1} style={{ fontSize: 12 }}>{displayUrl}</AppText>
+        </View>
+      ) : null}
+    </Pressable>
+  );
+}
+
+function IngredientPublications({ ingredient }: { ingredient: HazardCategoryIngredient }) {
+  const s = ingredient.severity != null ? SEVERITY_STYLE[ingredient.severity] : null;
+  return (
+    <View className="rounded-2xl p-4 gap-3" style={{ backgroundColor: 'rgba(255,255,255,0.06)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)' }}>
+      <View className="flex-row items-center justify-between gap-2">
+        <AppText variant="label" className="flex-1 capitalize text-white font-semibold" numberOfLines={2}>
+          {ingredient.name.toLowerCase()}
+        </AppText>
+        {s ? (
+          <View className="rounded-full px-2 py-0.5" style={{ backgroundColor: s.solid }}>
+            <AppText variant="caption" style={{ color: s.onSolid, fontWeight: '800', fontSize: 10, letterSpacing: 0.5 }}>{s.label}</AppText>
+          </View>
+        ) : null}
+      </View>
+      {ingredient.publications.length > 0 ? (
+        <View className="gap-2.5">
+          {ingredient.publications.map((pub, i) => (
+            <PublicationCard key={pub.url ?? pub.label ?? i} pub={pub} />
+          ))}
+        </View>
+      ) : (
+        <AppText variant="caption" className="text-white/40 italic">No published sources listed.</AppText>
+      )}
     </View>
+  );
+}
+
+function HazardPublicationsModal({ productId, category, onClose }: {
+  productId: number;
+  category: FlaggedCategory | null;
+  onClose: () => void;
+}) {
+  const insets = useSafeAreaInsets();
+  const { data, isLoading, isError } = useHazardCategory(productId, category?.key ?? null);
+  const risk = category ? SEVERITY_STYLE[category.severity] : null;
+
+  return (
+    <Modal
+      visible={category !== null}
+      transparent
+      animationType="slide"
+      statusBarTranslucent
+      onRequestClose={onClose}
+    >
+      <Pressable className="flex-1 justify-end" style={{ backgroundColor: 'rgba(0,0,0,0.55)' }} onPress={onClose}>
+        <Pressable
+          onPress={() => {}}
+          style={{
+            backgroundColor: '#2e1b58',
+            borderTopLeftRadius: 28,
+            borderTopRightRadius: 28,
+            borderTopWidth: 1,
+            borderColor: 'rgba(255,255,255,0.14)',
+            maxHeight: '85%',
+          }}
+        >
+          {/* Drag handle */}
+          <View className="items-center pt-3 pb-1">
+            <View style={{ width: 44, height: 5, borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.25)' }} />
+          </View>
+
+          {/* Header */}
+          <View className="flex-row items-start justify-between px-5 pt-3 gap-3">
+            <View className="flex-row items-center gap-3 flex-1">
+              {category ? <Ionicons name={category.icon} size={26} color="#c4b5fd" /> : null}
+              <View className="gap-1.5 flex-1">
+                <Text style={{ fontSize: 22, fontWeight: '900', color: '#ffffff' }}>
+                  {category?.label} Risk
+                </Text>
+                {risk ? (
+                  <View className="rounded-full px-2.5 py-0.5 self-start" style={{ backgroundColor: risk.solid }}>
+                    <AppText variant="caption" style={{ color: risk.onSolid, fontWeight: '800', fontSize: 10, letterSpacing: 0.5 }}>
+                      {risk.label} RISK
+                    </AppText>
+                  </View>
+                ) : null}
+              </View>
+            </View>
+            <Pressable onPress={onClose} hitSlop={8} className="w-9 h-9 rounded-full items-center justify-center" style={{ backgroundColor: 'rgba(255,255,255,0.14)' }}>
+              <Ionicons name="close" size={18} color="#ffffff" />
+            </Pressable>
+          </View>
+
+          <AppText variant="caption" className="text-white/55 px-5 pt-2">
+            Scientific publications supporting this risk classification
+          </AppText>
+
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={{ padding: 20, paddingTop: 16, gap: 14, paddingBottom: insets.bottom + 20 }}
+          >
+            {isLoading ? (
+              <View className="py-12 items-center"><ActivityIndicator color="#ffffff" /></View>
+            ) : isError || !data ? (
+              <AppText variant="body" className="text-white/60 text-center py-10">Couldn't load sources. Pull to retry.</AppText>
+            ) : data.ingredients.length === 0 ? (
+              <AppText variant="body" className="text-white/60 text-center py-10">No publications available for this category.</AppText>
+            ) : (
+              <>
+                {data.ingredients.map((ing) => (
+                  <IngredientPublications key={ing.ingredient_id} ingredient={ing} />
+                ))}
+                <AppText variant="caption" className="text-white/40 text-center italic pt-2">
+                  Sources are provided for transparency. Not medical advice.
+                </AppText>
+              </>
+            )}
+          </ScrollView>
+        </Pressable>
+      </Pressable>
+    </Modal>
   );
 }
 
@@ -316,6 +507,7 @@ export default function ProductDetailScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [reviewSheetVisible, setReviewSheetVisible] = useState(false);
   const [reportTarget, setReportTarget] = useState<number | null>(null);
+  const [hazardProof, setHazardProof] = useState<FlaggedCategory | null>(null);
 
   const { data: reviewPages, fetchNextPage, hasNextPage, isFetchingNextPage } = useProductReviews(productId);
   const { mutate: report } = useReportReview({
@@ -361,15 +553,14 @@ export default function ProductDetailScreen() {
 
   // Per-category hazard breakdown, flagged (non-null) categories only.
   const hazardCategories = product?.hazard_categories ?? null;
-  const flaggedCategories = hazardCategories
+  const flaggedCategories: FlaggedCategory[] = hazardCategories
     ? HAZARD_CATEGORY_META
-        .map((m) => ({ ...m, severity: hazardCategories[m.key] }))
-        .filter((c): c is typeof c & { severity: HazardSeverity } => c.severity != null)
+        .map((m) => {
+          const cat = hazardCategories[m.key];
+          return { ...m, severity: cat?.severity ?? null, prof: cat?.prof ?? false };
+        })
+        .filter((c): c is FlaggedCategory => c.severity != null)
     : [];
-  const hazardRows: (typeof flaggedCategories)[] = [];
-  for (let i = 0; i < flaggedCategories.length; i += 2) {
-    hazardRows.push(flaggedCategories.slice(i, i + 2));
-  }
 
   const writeButton = (label: string, icon: IconName) => (
     <Pressable
@@ -506,14 +697,18 @@ export default function ProductDetailScreen() {
                   <Text style={{ fontSize: 11, letterSpacing: 1.2, color: 'rgba(255,255,255,0.6)', fontWeight: '700', textTransform: 'uppercase' }}>
                     Hazard breakdown
                   </Text>
-                  {hazardRows.map((row, i) => (
-                    <View key={i} className="flex-row gap-3">
-                      {row.map((c) => (
-                        <HazardCategoryCard key={c.key} label={c.label} icon={c.icon} severity={c.severity} />
-                      ))}
-                      {row.length === 1 && <View className="flex-1" />}
-                    </View>
-                  ))}
+                  <View className="flex-row flex-wrap" style={{ gap: HAZARD_GAP }}>
+                    {flaggedCategories.map((c) => (
+                      <HazardCategoryCard
+                        key={c.key}
+                        label={c.label}
+                        icon={c.icon}
+                        severity={c.severity}
+                        prof={c.prof}
+                        onPress={() => setHazardProof(c)}
+                      />
+                    ))}
+                  </View>
                 </View>
               )}
             </View>
@@ -604,6 +799,7 @@ export default function ProductDetailScreen() {
                       key={review.review_id}
                       review={review}
                       onReport={() => setReportTarget(review.review_id)}
+                      onOpenProfile={(userId) => router.push(`/user/${userId}` as never)}
                     />
                   ))}
                 </View>
@@ -639,6 +835,12 @@ export default function ProductDetailScreen() {
       )}
 
       <AppToast config={toastConfig} />
+
+      <HazardPublicationsModal
+        productId={productId}
+        category={hazardProof}
+        onClose={() => setHazardProof(null)}
+      />
 
       {product && (
         <>
