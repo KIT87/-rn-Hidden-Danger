@@ -724,6 +724,16 @@ export default function ProductDetailScreen() {
               </CollapsibleCard>
             ) : null}
 
+            {/* Report wrong data */}
+            <Pressable
+              onPress={() => router.push(`/report/${productId}` as never)}
+              className="flex-row items-center justify-center gap-2 rounded-2xl py-3.5 active:opacity-80"
+              style={{ backgroundColor: GLASS.cardBg, borderWidth: 1, borderColor: GLASS.cardBorder }}
+            >
+              <Ionicons name="flag-outline" size={16} color="#ffffff" />
+              <AppText variant="label" className="text-white font-semibold">Report wrong data</AppText>
+            </Pressable>
+
             {/* Reviews */}
             <View className="rounded-3xl p-5 gap-4" style={glassCard}>
               <AppText variant="heading" className="text-white">Reviews</AppText>
