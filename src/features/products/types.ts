@@ -366,3 +366,33 @@ export interface UpsertReviewPayload {
   purchase_source: PurchaseSource;
   image_url: string | null;
 }
+
+// ─── Product corrections (report wrong data) ───────────────────────────────
+export type CorrectionType = 'brand' | 'product_name' | 'ingredients';
+
+export interface CreateReportResponse {
+  report_id: number;
+}
+
+export interface CorrectionPoints {
+  points_awarded: number;
+  points_pending: number;
+}
+
+export interface IngredientsCorrectionPayload {
+  label_image_urls: string[];
+  product_image_url?: string;
+  barcode?: string;
+}
+
+export interface BonusCorrectionPayload {
+  product_image_url?: string;
+  barcode?: string;
+  label_image_urls: string[];
+}
+
+export interface CorrectionSubmitResponse {
+  points_awarded_total: number;
+  points_pending_total: number;
+  points_total: number;
+}

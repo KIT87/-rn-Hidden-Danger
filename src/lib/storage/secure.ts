@@ -5,6 +5,7 @@ const AUTH_TOKEN_KEY = 'auth_token';
 const AUTH_EXPIRES_KEY = 'auth_expires_at';
 const AUTH_NICKNAME_KEY = 'auth_nickname';
 const LAST_APP_OPEN_KEY = 'last_app_open_date';
+const HIDE_REPORT_INTRO_KEY = 'hide_report_intro';
 
 const webStore = {
   getItemAsync: (key: string) => Promise.resolve(localStorage.getItem(key)),
@@ -31,10 +32,16 @@ export const storage = {
   getLastAppOpen: () => store.getItemAsync(LAST_APP_OPEN_KEY),
   setLastAppOpen: (date: string) => store.setItemAsync(LAST_APP_OPEN_KEY, date),
 
+  // Whether the user checked "don't show again" on the report-wrong-data intro.
+  getHideReportIntro: () => store.getItemAsync(HIDE_REPORT_INTRO_KEY),
+  setHideReportIntro: (hide: boolean) =>
+    store.setItemAsync(HIDE_REPORT_INTRO_KEY, hide ? 'true' : 'false'),
+
   clear: async () => {
     await store.deleteItemAsync(AUTH_TOKEN_KEY);
     await store.deleteItemAsync(AUTH_EXPIRES_KEY);
     await store.deleteItemAsync(AUTH_NICKNAME_KEY);
     await store.deleteItemAsync(LAST_APP_OPEN_KEY);
+    await store.deleteItemAsync(HIDE_REPORT_INTRO_KEY);
   },
 };
