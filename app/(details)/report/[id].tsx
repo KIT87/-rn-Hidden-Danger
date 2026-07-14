@@ -22,7 +22,10 @@ import {
 } from '@/features/corrections/useCorrections';
 import type { CorrectionSubmitResponse, CorrectionType } from '@/features/products/types';
 
-type Step = 'intro' | 'types' | 'brand' | 'name' | 'ingredients' | 'bonus' | 'thanks';
+// The ingredient/bonus capture is split across three steps: photos → product →
+// barcode. Both the required "ingredients" correction and the optional "bonus"
+// capture share these steps; `captureMode` (below) picks copy + submit endpoint.
+type Step = 'intro' | 'types' | 'brand' | 'name' | 'photos' | 'product' | 'barcode' | 'thanks';
 
 const TYPE_OPTIONS: {
   value: CorrectionType;
@@ -53,6 +56,42 @@ const REWARD_ROWS: {
   { icon: 'text-outline', label: 'Fix the product name', pts: '+2 pts' },
   { icon: 'flask-outline', label: 'Ingredients with photos', pts: 'up to 20' },
 ];
+
+// Compact version of the intro hero (frosted icon badge + eyebrow + headline +
+// subtitle), reused as the header of each capture step for a consistent look.
+function StepHero({
+  icon,
+  eyebrow,
+  title,
+  subtitle,
+}: {
+  icon: React.ComponentProps<typeof Ionicons>['name'];
+  eyebrow: string;
+  title: string;
+  subtitle: string;
+}) {
+  return (
+    <View className="items-center gap-4">
+      <View
+        className="w-16 h-16 rounded-3xl items-center justify-center"
+        style={{ backgroundColor: GLASS.cardBgStrong, borderWidth: 1, borderColor: GLASS.cardBorder }}
+      >
+        <Ionicons name={icon} size={30} color="#ffffff" />
+      </View>
+      <View className="items-center gap-2">
+        <Text style={{ fontSize: 11, letterSpacing: 2.5, color: 'rgba(255,255,255,0.5)', fontWeight: '700' }}>
+          {eyebrow}
+        </Text>
+        <Text style={{ fontSize: 24, lineHeight: 28, fontWeight: '900', color: '#ffffff', textAlign: 'center' }}>
+          {title}
+        </Text>
+        <AppText variant="body" className="text-white/70 text-center leading-relaxed">
+          {subtitle}
+        </AppText>
+      </View>
+    </View>
+  );
+}
 
 export default function ReportWrongDataScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -99,13 +138,19 @@ export default function ReportWrongDataScreen() {
     s.push('types');
     if (types.has('brand')) s.push('brand');
     if (types.has('product_name')) s.push('name');
-    if (types.has('ingredients')) s.push('ingredients');
-    else s.push('bonus');
+    // Always ends with the three-step capture. When ingredients was chosen it's a
+    // required correction; otherwise it's the optional bonus capture (skippable).
+    s.push('photos', 'product', 'barcode');
     s.push('thanks');
     return s;
   }, [hideIntro, types]);
 
   const step = steps[Math.min(stepIndex, steps.length - 1)];
+
+  // Which correction the capture steps submit to: the chosen ingredients fix, or
+  // the optional bonus capture offered when ingredients wasn't selected.
+  const captureMode: 'ingredients' | 'bonus' = types.has('ingredients') ? 'ingredients' : 'bonus';
+  const thanksIndex = steps.length - 1;
 
   // Finalize when the thank-you step is reached; retryable on failure via runFinalize().
   function runFinalize() {
@@ -172,6 +217,38 @@ export default function ReportWrongDataScreen() {
     }
   }
 
+  // Submits the collected capture payload to the ingredients or bonus endpoint
+  // (whichever the wizard was entered through). Called from the final barcode step.
+  async function submitCapture(barcodeValue: string | null) {
+    if (reportId == null) return;
+    const payload = {
+      label_image_urls: labelUrls,
+      product_image_url: productUrl ?? undefined,
+      barcode: barcodeValue ?? undefined,
+    };
+    if (captureMode === 'ingredients') await submitIngredients.mutateAsync({ reportId, payload });
+    else await submitBonus.mutateAsync({ reportId, payload });
+  }
+
+  // Secondary "Skip" action on the optional steps. Product: drop any photo and
+  // advance. Barcode: submit the capture without a barcode, then advance.
+  async function handleSkip() {
+    setBusy(true);
+    try {
+      if (step === 'product') {
+        setProductUrl(null);
+        goNext();
+      } else if (step === 'barcode') {
+        await submitCapture(null);
+        goNext();
+      }
+    } catch {
+      showToast('Something went wrong. Please try again.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function handleContinue() {
     setBusy(true);
     try {
@@ -198,30 +275,15 @@ export default function ReportWrongDataScreen() {
           if (reportId != null) await submitName.mutateAsync({ reportId, value: name.trim() });
           goNext();
           break;
-        case 'ingredients':
-          if (reportId != null) {
-            await submitIngredients.mutateAsync({
-              reportId,
-              payload: {
-                label_image_urls: labelUrls,
-                product_image_url: productUrl ?? undefined,
-                barcode: barcode ?? undefined,
-              },
-            });
-          }
+        // Photos and product are pure collection steps — no API call yet.
+        case 'photos':
+        case 'product':
           goNext();
           break;
-        case 'bonus':
-          if (reportId != null) {
-            await submitBonus.mutateAsync({
-              reportId,
-              payload: {
-                label_image_urls: labelUrls,
-                product_image_url: productUrl ?? undefined,
-                barcode: barcode ?? undefined,
-              },
-            });
-          }
+        // Barcode is the last capture step: submit the whole payload once, to the
+        // ingredients or bonus endpoint depending on how the wizard was entered.
+        case 'barcode':
+          await submitCapture(barcode);
           goNext();
           break;
       }
@@ -241,8 +303,13 @@ export default function ReportWrongDataScreen() {
       case 'types': return types.size > 0;
       case 'brand': return brand.trim().length > 0;
       case 'name': return name.trim().length > 0;
-      case 'ingredients':
-      case 'bonus': return labelUrls.length > 0 && !uploading;
+      // At least one label photo is required to proceed (in both modes); the
+      // bonus flow can instead skip the whole capture from the photos step.
+      case 'photos': return labelUrls.length > 0 && !uploading;
+      // Product photo and barcode are optional — you can continue with none, but
+      // not while an upload is still in flight.
+      case 'product':
+      case 'barcode': return !uploading;
       default: return true;
     }
   })();
@@ -300,7 +367,7 @@ export default function ReportWrongDataScreen() {
         <>
           <ScrollView
             contentContainerStyle={
-              step === 'intro'
+              step === 'intro' || step === 'product' || step === 'barcode'
                 ? { padding: 20, paddingBottom: 24, gap: 16, flexGrow: 1, justifyContent: 'center' }
                 : { padding: 20, gap: 16, paddingBottom: 24 }
             }
@@ -413,23 +480,28 @@ export default function ReportWrongDataScreen() {
               </View>
             )}
 
-            {(step === 'ingredients' || step === 'bonus') && (
-              <View className="gap-5">
-                <View className="gap-1">
-                  <AppText variant="heading" className="text-white">
-                    {step === 'ingredients' ? 'Report wrong ingredients' : 'Add supporting evidence'}
-                  </AppText>
-                  <AppText variant="body" className="text-white/70">
-                    Add at least one clear photo of the ingredient label. A product photo and barcode are optional but help verification.
-                  </AppText>
-                </View>
+            {/* Step 1 — ingredient label photos (required in both modes) */}
+            {step === 'photos' && (
+              <View className="gap-7">
+                <StepHero
+                  icon="camera"
+                  eyebrow={captureMode === 'ingredients' ? 'INGREDIENT LABEL' : 'BONUS · LABEL PHOTOS'}
+                  title={captureMode === 'ingredients' ? 'Snap the ingredient list' : 'Add ingredient photos'}
+                  subtitle={
+                    captureMode === 'ingredients'
+                      ? 'Add at least one clear, readable photo of the full ingredient label so a moderator can verify your fix.'
+                      : 'Got a clear shot of the ingredient label? Add it to earn bonus points — or skip this.'
+                  }
+                />
 
-                {/* Label photos (mandatory) */}
-                <View className="gap-2">
-                  <AppText variant="label" className="text-white">
-                    Ingredient label photos * {labelUrls.length > 0 ? `(${labelUrls.length}/${MAX_CORRECTION_IMAGES})` : `(up to ${MAX_CORRECTION_IMAGES})`}
-                  </AppText>
-                  <View className="flex-row flex-wrap gap-2">
+                <View className="rounded-3xl p-4 gap-3" style={glassCard}>
+                  <View className="flex-row items-center justify-between">
+                    <AppText variant="label" className="text-white">Photos</AppText>
+                    <AppText variant="caption" className="text-white/50">
+                      {labelUrls.length}/{MAX_CORRECTION_IMAGES}
+                    </AppText>
+                  </View>
+                  <View className="flex-row flex-wrap gap-2 justify-center">
                     {labelUrls.map((url, i) => (
                       <View key={url} className="rounded-xl overflow-hidden" style={{ width: 84, height: 84 }}>
                         <Image source={{ uri: url }} style={{ width: 84, height: 84 }} />
@@ -439,38 +511,66 @@ export default function ReportWrongDataScreen() {
                       </View>
                     ))}
                     {labelUrls.length < MAX_CORRECTION_IMAGES && (
-                      <Pressable onPress={addLabelPhoto} disabled={uploading} className="items-center justify-center rounded-xl" style={{ width: 84, height: 84, backgroundColor: GLASS.cardBg, borderWidth: 1, borderColor: GLASS.cardBorder }}>
+                      <Pressable onPress={addLabelPhoto} disabled={uploading} className="items-center justify-center rounded-xl" style={{ width: 84, height: 84, backgroundColor: GLASS.cardBgStrong, borderWidth: 1, borderColor: GLASS.cardBorder }}>
                         {uploading ? <ActivityIndicator color="#ffffff" /> : <Ionicons name="camera-outline" size={24} color="#ffffff" />}
                       </Pressable>
                     )}
                   </View>
                 </View>
+              </View>
+            )}
 
-                {/* Product photo (optional) */}
-                <View className="gap-2">
-                  <AppText variant="label" className="text-white">Product photo (optional)</AppText>
+            {/* Step 2 — product photo (optional) */}
+            {step === 'product' && (
+              <View className="gap-7">
+                <StepHero
+                  icon="cube-outline"
+                  eyebrow="PRODUCT PHOTO · OPTIONAL"
+                  title="Show us the product"
+                  subtitle="A photo of the front of the pack helps a moderator match it to the right catalog entry."
+                />
+                <View className="items-center">
                   {productUrl ? (
-                    <View className="rounded-xl overflow-hidden" style={{ width: 84, height: 84 }}>
-                      <Image source={{ uri: productUrl }} style={{ width: 84, height: 84 }} />
-                      <Pressable onPress={() => setProductUrl(null)} style={{ position: 'absolute', top: 2, right: 2, width: 22, height: 22, borderRadius: 11, backgroundColor: 'rgba(0,0,0,0.6)', alignItems: 'center', justifyContent: 'center' }}>
-                        <Ionicons name="close" size={14} color="#ffffff" />
+                    <View className="rounded-3xl overflow-hidden" style={{ width: 160, height: 160 }}>
+                      <Image source={{ uri: productUrl }} style={{ width: 160, height: 160 }} />
+                      <Pressable onPress={() => setProductUrl(null)} style={{ position: 'absolute', top: 6, right: 6, width: 26, height: 26, borderRadius: 13, backgroundColor: 'rgba(0,0,0,0.6)', alignItems: 'center', justifyContent: 'center' }}>
+                        <Ionicons name="close" size={16} color="#ffffff" />
                       </Pressable>
                     </View>
                   ) : (
-                    <Pressable onPress={setProductPhoto} disabled={uploading} className="items-center justify-center rounded-xl" style={{ width: 84, height: 84, backgroundColor: GLASS.cardBg, borderWidth: 1, borderColor: GLASS.cardBorder }}>
-                      <Ionicons name="camera-outline" size={24} color="#ffffff" />
+                    <Pressable onPress={setProductPhoto} disabled={uploading} className="items-center justify-center rounded-3xl gap-2" style={{ width: 160, height: 160, backgroundColor: GLASS.cardBg, borderWidth: 1, borderColor: GLASS.cardBorder }}>
+                      {uploading ? (
+                        <ActivityIndicator color="#ffffff" />
+                      ) : (
+                        <>
+                          <Ionicons name="camera-outline" size={30} color="#ffffff" />
+                          <AppText variant="caption" className="text-white/70">Take photo</AppText>
+                        </>
+                      )}
                     </Pressable>
                   )}
                 </View>
+              </View>
+            )}
 
-                {/* Barcode (optional) */}
-                <View className="gap-2">
-                  <AppText variant="label" className="text-white">Barcode (optional)</AppText>
-                  <Pressable onPress={() => setScanning(true)} className="flex-row items-center gap-2 rounded-2xl px-4 py-3 active:opacity-80" style={{ backgroundColor: GLASS.cardBg, borderWidth: 1, borderColor: GLASS.cardBorder }}>
-                    <Ionicons name="barcode-outline" size={18} color="#ffffff" />
-                    <AppText className="text-white/90">{barcode ?? 'Scan barcode'}</AppText>
+            {/* Step 3 — barcode (optional) */}
+            {step === 'barcode' && (
+              <View className="gap-7">
+                <StepHero
+                  icon="barcode-outline"
+                  eyebrow="BARCODE · OPTIONAL"
+                  title="Scan the barcode"
+                  subtitle="Scanning the barcode makes verification faster and more accurate."
+                />
+                <Pressable onPress={() => setScanning(true)} className="flex-row items-center justify-center gap-2 rounded-2xl px-4 py-4 active:opacity-80" style={{ backgroundColor: barcode ? GLASS.cardBgStrong : GLASS.cardBg, borderWidth: 1, borderColor: barcode ? '#c4b5fd' : GLASS.cardBorder }}>
+                  <Ionicons name={barcode ? 'checkmark-circle' : 'barcode-outline'} size={20} color={barcode ? '#c4b5fd' : '#ffffff'} />
+                  <AppText className="text-white/90">{barcode ?? 'Scan barcode'}</AppText>
+                </Pressable>
+                {barcode && (
+                  <Pressable onPress={() => setBarcode(null)} className="items-center active:opacity-70">
+                    <AppText variant="caption" className="text-white/55">Clear barcode</AppText>
                   </Pressable>
-                </View>
+                )}
               </View>
             )}
 
@@ -509,15 +609,27 @@ export default function ReportWrongDataScreen() {
                 <AppText variant="caption" className="text-white/55">Don't show this again</AppText>
               </Pressable>
             )}
-            {step === 'bonus' && (
-              <Pressable onPress={goNext} className="items-center py-2 active:opacity-70">
-                <AppText className="text-white/70">Skip this step</AppText>
+            {/* Bonus capture is optional — let the user skip the whole thing from
+                the first (photos) step, jumping straight to the thank-you step. */}
+            {step === 'photos' && captureMode === 'bonus' && (
+              <Pressable onPress={() => setStepIndex(thanksIndex)} className="items-center py-2 active:opacity-70">
+                <AppText className="text-white/70">Skip — I don't have photos</AppText>
               </Pressable>
             )}
             {step === 'thanks' ? (
               <Pressable onPress={() => router.back()} className="items-center justify-center rounded-2xl py-4 active:opacity-80" style={{ backgroundColor: '#7c3aed' }}>
                 <AppText className="text-white font-semibold">Done</AppText>
               </Pressable>
+            ) : step === 'product' || step === 'barcode' ? (
+              // Optional steps: secondary Skip next to the primary Continue.
+              <View className="flex-row gap-3">
+                <Pressable onPress={handleSkip} disabled={busy} className="items-center justify-center rounded-2xl py-4 px-6 active:opacity-80" style={{ backgroundColor: GLASS.cardBg, borderWidth: 1, borderColor: GLASS.cardBorder }}>
+                  <AppText className="text-white/80 font-semibold">Skip</AppText>
+                </Pressable>
+                <Pressable onPress={handleContinue} disabled={!canContinue || busy} className="flex-1 flex-row items-center justify-center gap-2 rounded-2xl py-4 active:opacity-80" style={{ backgroundColor: canContinue && !busy ? '#7c3aed' : 'rgba(124,58,237,0.4)' }}>
+                  {busy ? <ActivityIndicator color="#ffffff" /> : <AppText className="text-white font-semibold">Continue</AppText>}
+                </Pressable>
+              </View>
             ) : (
               <Pressable onPress={handleContinue} disabled={!canContinue || busy} className="flex-row items-center justify-center gap-2 rounded-2xl py-4 active:opacity-80" style={{ backgroundColor: canContinue && !busy ? '#7c3aed' : 'rgba(124,58,237,0.4)' }}>
                 {busy ? <ActivityIndicator color="#ffffff" /> : <AppText className="text-white font-semibold">Continue</AppText>}
