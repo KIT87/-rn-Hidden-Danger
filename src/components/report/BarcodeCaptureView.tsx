@@ -1,3 +1,4 @@
+import { useRef } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { CameraView, useCameraPermissions } from 'expo-camera';
@@ -14,6 +15,7 @@ export function BarcodeCaptureView({ onScanned, onClose }: {
 }) {
   const insets = useSafeAreaInsets();
   const [permission, requestPermission] = useCameraPermissions();
+  const scannedRef = useRef(false);
 
   if (!permission) {
     return <View style={{ flex: 1, backgroundColor: 'black' }} />;
@@ -34,7 +36,9 @@ export function BarcodeCaptureView({ onScanned, onClose }: {
   }
 
   const handle = (r: BarcodeScanningResult) => {
-    if (r.data) onScanned(r.data);
+    if (scannedRef.current || !r.data) return;
+    scannedRef.current = true;
+    onScanned(r.data);
   };
 
   return (

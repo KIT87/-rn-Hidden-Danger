@@ -90,14 +90,17 @@ export default function ReportWrongDataScreen() {
 
   const step = steps[Math.min(stepIndex, steps.length - 1)];
 
-  // Finalize exactly once, when the thank-you step is reached.
+  // Finalize when the thank-you step is reached; retryable on failure via runFinalize().
+  function runFinalize() {
+    if (reportId == null || result || finalize.isPending) return;
+    finalize
+      .mutateAsync(reportId)
+      .then((r) => { if (r) setResult(r); })
+      .catch(() => showToast('Could not finalize your report. Please try again.'));
+  }
+
   useEffect(() => {
-    if (step === 'thanks' && reportId != null && !result && !finalize.isPending) {
-      finalize
-        .mutateAsync(reportId)
-        .then((r) => { if (r) setResult(r); })
-        .catch(() => showToast('Could not finalize your report. Please try again.'));
-    }
+    if (step === 'thanks') runFinalize();
   }, [step, reportId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function toggleType(t: CorrectionType) {
@@ -392,9 +395,9 @@ export default function ReportWrongDataScreen() {
               <View className="items-center gap-4 pt-6">
                 <Ionicons name="checkmark-circle" size={64} color="#c4b5fd" />
                 <AppText variant="heading" className="text-white text-center">Thank you!</AppText>
-                {finalize.isPending || !result ? (
+                {finalize.isPending ? (
                   <ActivityIndicator color="#ffffff" />
-                ) : (
+                ) : result ? (
                   <View className="items-center gap-2">
                     <AppText variant="body" className="text-white/85 text-center">You earned</AppText>
                     <AppText className="text-white" style={{ fontSize: 40, fontWeight: '900' }}>{result.points_awarded_total} pts</AppText>
@@ -404,6 +407,10 @@ export default function ReportWrongDataScreen() {
                       </AppText>
                     )}
                   </View>
+                ) : (
+                  <Pressable onPress={runFinalize} className="rounded-2xl px-5 py-3" style={{ backgroundColor: '#7c3aed' }}>
+                    <AppText className="text-white font-semibold">Try again</AppText>
+                  </Pressable>
                 )}
               </View>
             )}
