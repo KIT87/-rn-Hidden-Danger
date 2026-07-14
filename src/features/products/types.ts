@@ -383,15 +383,6 @@ export interface CreateReportResponse {
   report_id: number;
 }
 
-// POST corrections/image_upload — server-side multipart upload to GCS.
-// The old GET corrections/image_upload_url (signed-URL) flow is gone; the client
-// now POSTs the raw file and gets the hosted URL back.
-export interface CorrectionImageUploadResponse {
-  public_url: string;
-  file_path: string;
-  content_type: string;
-}
-
 export interface CorrectionPoints {
   points_awarded: number;
   points_pending: number;

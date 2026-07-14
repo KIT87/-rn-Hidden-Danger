@@ -24,7 +24,12 @@ export function AvatarLarge({ initial, showDot = false }: { initial: string; sho
         className="items-center justify-center"
         style={{ width: 96, height: 96, borderRadius: 48, backgroundColor: '#a78bfa', borderWidth: 2, borderColor: 'rgba(255,255,255,0.35)' }}
       >
-        <AppText className="text-white font-bold" style={{ fontSize: 40 }}>{initial}</AppText>
+        <AppText
+          className="text-white font-bold"
+          style={{ fontSize: 40, lineHeight: 48, textAlign: 'center', textAlignVertical: 'center', includeFontPadding: false }}
+        >
+          {initial}
+        </AppText>
       </View>
       {showDot && (
         <View

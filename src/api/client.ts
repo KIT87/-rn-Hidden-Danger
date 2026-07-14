@@ -45,12 +45,10 @@ export class ApiError extends Error {
 async function request<T>(path: string, options: RequestOptions = {}): Promise<T | null> {
   const { method = 'GET', body, auth = true, baseUrl = BASE_URL, token } = options;
 
-  // FormData bodies (multipart uploads) must NOT be JSON-stringified, and we let
-  // fetch set `Content-Type` with the correct multipart boundary itself.
-  const isForm = typeof FormData !== 'undefined' && body instanceof FormData;
-
-  const headers: Record<string, string> = { 'Accept': 'application/json' };
-  if (!isForm) headers['Content-Type'] = 'application/json';
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    'Accept': 'application/json',
+  };
 
   if (auth) {
     const bearer = token || (await storage.getToken());
@@ -60,14 +58,14 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
   }
 
   const url = `${baseUrl}/${path.replace(/^\//, '')}`;
-  console.log(`[API] ${method} ${url}`, isForm ? '[multipart]' : body ?? '');
+  console.log(`[API] ${method} ${url}`, body ?? '');
 
   let res: Response;
   try {
     res = await fetch(url, {
       method,
       headers,
-      body: isForm ? (body as FormData) : body !== undefined ? JSON.stringify(body) : undefined,
+      body: body !== undefined ? JSON.stringify(body) : undefined,
     });
   } catch (err) {
     console.error(`[API] Network error — ${method} ${url}`, err);
@@ -103,7 +101,6 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
 export const api = {
   get:    <T>(path: string, auth = true)                 => request<T>(path, { method: 'GET',    auth }),
   post:   <T>(path: string, body?: unknown, auth = true) => request<T>(path, { method: 'POST',   body, auth }),
-  upload: <T>(path: string, form: FormData, auth = true) => request<T>(path, { method: 'POST',   body: form, auth }),
   delete: <T>(path: string, auth = true)                 => request<T>(path, { method: 'DELETE', auth }),
 };
 

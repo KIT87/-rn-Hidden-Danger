@@ -9,7 +9,7 @@ import { AppInput, AppText, AppToast, ScreenGradient, useToast } from '@/compone
 import { GLASS } from '@/theme/glass';
 import { ApiError } from '@/api/client';
 import { storage } from '@/lib/storage/secure';
-import { BarcodeCaptureView } from '@/components/report/BarcodeCaptureView';
+import { BarcodeScanner } from '@/components/scan/BarcodeScanner';
 import { MAX_CORRECTION_IMAGES, uploadCorrectionImage } from '@/features/corrections/uploadImage';
 import { useProduct } from '@/features/products/useProduct';
 import {
@@ -314,11 +314,12 @@ export default function ReportWrongDataScreen() {
     }
   })();
 
-  // The barcode scanner takes over the whole screen while active.
+  // The barcode scanner takes over the whole screen while active — the same
+  // scanner used by the EAN scan screen, but we only keep the scanned value.
   if (scanning) {
     return (
-      <BarcodeCaptureView
-        onScanned={(code) => { setBarcode(code); setScanning(false); }}
+      <BarcodeScanner
+        onScan={(code) => { setBarcode(code); setScanning(false); }}
         onClose={() => setScanning(false)}
       />
     );
@@ -583,7 +584,12 @@ export default function ReportWrongDataScreen() {
                 ) : result ? (
                   <View className="items-center gap-2">
                     <AppText variant="body" className="text-white/85 text-center">You earned</AppText>
-                    <AppText className="text-white" style={{ fontSize: 40, fontWeight: '900' }}>{result.points_awarded_total} pts</AppText>
+                    <AppText
+                      className="text-white"
+                      style={{ fontSize: 40, lineHeight: 48, fontWeight: '900', textAlign: 'center', textAlignVertical: 'center', includeFontPadding: false }}
+                    >
+                      {result.points_awarded_total} pts
+                    </AppText>
                     {result.points_pending_total > 0 && (
                       <AppText variant="caption" className="text-white/70 text-center">
                         +{result.points_pending_total} pending — credited once a moderator verifies your report.

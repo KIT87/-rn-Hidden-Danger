@@ -1,13 +1,12 @@
-import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Dimensions, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useState } from 'react';
+import { Dimensions, Pressable, StyleSheet, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { CameraView, useCameraPermissions } from 'expo-camera';
-import type { BarcodeScanningResult } from 'expo-camera';
 import { AppText, GlassHeader, ScreenGradient } from '@/components/ui';
 import { GLASS } from '@/theme/glass';
+import { BarcodeScanner } from '@/components/scan/BarcodeScanner';
 import { productsApi } from '@/features/products/api';
 import { useRecordActivity } from '@/features/gamification/useActivity';
 import { findExactGtinMatch } from '@/features/products/searchMapper';
@@ -54,132 +53,6 @@ const vf = StyleSheet.create({
   corner: { position: 'absolute', width: 36, height: 36, borderColor: '#ffffff' },
 });
 
-const SCAN_SIZE = 260;
-const CORNER = 28;
-const CORNER_W = 4;
-
-function ViewfinderOverlay({ onClose }: { onClose: () => void }) {
-  return (
-    <View style={StyleSheet.absoluteFillObject} pointerEvents="box-none">
-      <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.6)' }} />
-      <View style={{ flexDirection: 'row', height: SCAN_SIZE }}>
-        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.6)' }} />
-        <View style={{ width: SCAN_SIZE, height: SCAN_SIZE }}>
-          <View style={[styles.corner, { top: 0, left: 0, borderTopWidth: CORNER_W, borderLeftWidth: CORNER_W }]} />
-          <View style={[styles.corner, { top: 0, right: 0, borderTopWidth: CORNER_W, borderRightWidth: CORNER_W }]} />
-          <View style={[styles.corner, { bottom: 0, left: 0, borderBottomWidth: CORNER_W, borderLeftWidth: CORNER_W }]} />
-          <View style={[styles.corner, { bottom: 0, right: 0, borderBottomWidth: CORNER_W, borderRightWidth: CORNER_W }]} />
-        </View>
-        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.6)' }} />
-      </View>
-      <View
-        style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', alignItems: 'center', paddingTop: 32, gap: 24 }}
-        pointerEvents="box-none"
-      >
-        <Text style={{ color: 'rgba(255,255,255,0.75)', fontSize: 14 }}>
-          Point at a product barcode
-        </Text>
-        <Pressable
-          onPress={onClose}
-          style={{ paddingHorizontal: 28, paddingVertical: 10, borderRadius: 24, borderWidth: 1, borderColor: 'rgba(255,255,255,0.4)' }}
-          pointerEvents="auto"
-        >
-          <Text style={{ color: 'white', fontSize: 15 }}>Cancel</Text>
-        </Pressable>
-      </View>
-    </View>
-  );
-}
-
-interface CameraScannerProps {
-  onClose: () => void;
-  onProductFound: (productId: number) => void;
-  onResults: (code: string) => void;
-  onNotFound: (code: string) => void;
-}
-
-function CameraScanner({ onClose, onProductFound, onResults, onNotFound }: CameraScannerProps) {
-  const [permission, requestPermission] = useCameraPermissions();
-  const [searching, setSearching] = useState(false);
-  const scanLock = useRef(false);
-  const cameraRef = useRef<CameraView>(null);
-  const recordActivity = useRecordActivity();
-
-  useEffect(() => {
-    if (permission === null) return;
-    if (!permission.granted) {
-      requestPermission().then((result) => {
-        if (!result.granted) {
-          Alert.alert(
-            'Camera Permission Required',
-            'Please enable camera access in Settings to scan barcodes.',
-            [
-              { text: 'Cancel', style: 'cancel', onPress: onClose },
-              { text: 'Open Settings', onPress: () => { Linking.openSettings(); onClose(); } },
-            ]
-          );
-        }
-      });
-    }
-  }, [permission]);
-
-  async function handleBarcodeScanned({ data }: BarcodeScanningResult) {
-    if (scanLock.current) return;
-    scanLock.current = true;
-    cameraRef.current?.pausePreview();
-    setSearching(true);
-
-    try {
-      const response = await productsApi.search({ ean: data, limit: 10 });
-      const hasResults = response !== null && response.products.length > 0;
-      const exact = hasResults ? findExactGtinMatch(response!.products, data) : undefined;
-      // Report the scan (+ resolved product) to history/points, once per scan.
-      recordActivity({
-        type: 'scan',
-        query: data,
-        product_found: !!exact,
-        product_name: exact?.canonical_name ?? null,
-        product_image_url: exact?.image_url ?? null,
-      });
-      if (exact) {
-        onProductFound(exact.product_id);
-      } else if (hasResults) {
-        onResults(data);
-      } else {
-        onNotFound(data);
-      }
-    } catch {
-      Alert.alert('Error', 'Something went wrong. Please try again.', [
-        { text: 'OK', onPress: () => { scanLock.current = false; setSearching(false); cameraRef.current?.resumePreview(); } },
-      ]);
-    }
-  }
-
-  if (!permission?.granted) return null;
-
-  return (
-    <View style={{ flex: 1, backgroundColor: 'black' }}>
-      <CameraView
-        ref={cameraRef}
-        style={StyleSheet.absoluteFillObject}
-        facing="back"
-        onBarcodeScanned={!searching ? handleBarcodeScanned : undefined}
-        barcodeScannerSettings={{
-          barcodeTypes: ['ean13', 'ean8', 'upc_a', 'upc_e', 'code128'],
-        }}
-      />
-      {searching ? (
-        <View style={[StyleSheet.absoluteFillObject, { backgroundColor: 'rgba(0,0,0,0.7)', alignItems: 'center', justifyContent: 'center', gap: 16 }]}>
-          <ActivityIndicator size="large" color="white" />
-          <Text style={{ color: 'white', fontSize: 15 }}>Searching product…</Text>
-        </View>
-      ) : (
-        <ViewfinderOverlay onClose={onClose} />
-      )}
-    </View>
-  );
-}
-
 // ─── Buttons ──────────────────────────────────────────────────────────────────
 
 function PrimaryButton({ label, icon, onPress }: { label: string; icon: React.ComponentProps<typeof Ionicons>['name']; onPress: () => void }) {
@@ -212,22 +85,35 @@ export default function ScanScreen() {
   const insets = useSafeAreaInsets();
   const [cameraActive, setCameraActive] = useState(false);
   const [notFoundCode, setNotFoundCode] = useState<string | null>(null);
+  const recordActivity = useRecordActivity();
 
   if (cameraActive) {
     return (
-      <CameraScanner
+      <BarcodeScanner
+        busyLabel="Searching product…"
         onClose={() => setCameraActive(false)}
-        onProductFound={(id) => {
-          setCameraActive(false);
-          router.push(`/product/${id}` as never);
-        }}
-        onResults={(code) => {
-          setCameraActive(false);
-          router.push({ pathname: '/search/ean', params: { code } } as never);
-        }}
-        onNotFound={(code) => {
-          setCameraActive(false);
-          setNotFoundCode(code);
+        onScan={async (data) => {
+          const response = await productsApi.search({ ean: data, limit: 10 });
+          const hasResults = response !== null && response.products.length > 0;
+          const exact = hasResults ? findExactGtinMatch(response!.products, data) : undefined;
+          // Report the scan (+ resolved product) to history/points, once per scan.
+          recordActivity({
+            type: 'scan',
+            query: data,
+            product_found: !!exact,
+            product_name: exact?.canonical_name ?? null,
+            product_image_url: exact?.image_url ?? null,
+          });
+          if (exact) {
+            setCameraActive(false);
+            router.push(`/product/${exact.product_id}` as never);
+          } else if (hasResults) {
+            setCameraActive(false);
+            router.push({ pathname: '/search/ean', params: { code: data } } as never);
+          } else {
+            setCameraActive(false);
+            setNotFoundCode(data);
+          }
         }}
       />
     );
@@ -295,12 +181,3 @@ export default function ScanScreen() {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  corner: {
-    position: 'absolute',
-    width: CORNER,
-    height: CORNER,
-    borderColor: '#7c3aed',
-  },
-});

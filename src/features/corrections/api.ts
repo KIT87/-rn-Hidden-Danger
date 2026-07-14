@@ -1,11 +1,11 @@
 import { api } from '@/api/client';
 import type {
   BonusCorrectionPayload,
-  CorrectionImageUploadResponse,
   CorrectionPoints,
   CorrectionSubmitResponse,
   CorrectionType,
   CreateReportResponse,
+  ImageUploadUrlResponse,
   IngredientsCorrectionPayload,
 } from '@/features/products/types';
 
@@ -22,6 +22,6 @@ export const correctionsApi = {
     api.post<CorrectionPoints>(`corrections/${reportId}/bonus`, payload),
   submit: (reportId: number) =>
     api.post<CorrectionSubmitResponse>(`corrections/${reportId}/submit`),
-  uploadImage: (form: FormData) =>
-    api.upload<CorrectionImageUploadResponse>('corrections/image_upload', form),
+  imageUploadUrl: () =>
+    api.get<ImageUploadUrlResponse>('corrections/image_upload_url'),
 };
