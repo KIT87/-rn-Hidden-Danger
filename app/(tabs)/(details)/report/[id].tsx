@@ -158,7 +158,11 @@ export default function ReportWrongDataScreen() {
           break;
         case 'types': {
           const res = await createReport.mutateAsync({ productId, types: Array.from(types) });
-          if (res) setReportId(res.report_id);
+          if (!res) {
+            showToast('Something went wrong. Please try again.');
+            break;
+          }
+          setReportId(res.report_id);
           goNext();
           break;
         }
@@ -237,9 +241,13 @@ export default function ReportWrongDataScreen() {
       {/* Header + progress */}
       <View style={{ paddingTop: insets.top + 8 }}>
         <View className="flex-row items-center gap-3 px-4" style={{ height: 48 }}>
-          <Pressable onPress={goBack} hitSlop={8} className="w-9 h-9 rounded-full items-center justify-center" style={{ backgroundColor: GLASS.chipBg }}>
-            <Ionicons name="chevron-back" size={20} color="#ffffff" />
-          </Pressable>
+          {reportId == null ? (
+            <Pressable onPress={goBack} hitSlop={8} className="w-9 h-9 rounded-full items-center justify-center" style={{ backgroundColor: GLASS.chipBg }}>
+              <Ionicons name="chevron-back" size={20} color="#ffffff" />
+            </Pressable>
+          ) : (
+            <View style={{ width: 36 }} />
+          )}
           <AppText variant="label" className="flex-1 text-center text-white">Report wrong data</AppText>
           <Pressable onPress={() => router.back()} hitSlop={8} className="w-9 h-9 rounded-full items-center justify-center" style={{ backgroundColor: GLASS.chipBg }}>
             <Ionicons name="close" size={18} color="#ffffff" />
