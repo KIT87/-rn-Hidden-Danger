@@ -68,6 +68,15 @@ export interface TopRatedProduct {
   review_highlight: ReviewHighlight | null;
 }
 
+// ─── Similar products (GET products/:id/similar) ───────────────────────────────
+// Minimal shape: safer alternatives to a given product. No brand/hazard fields.
+export interface SimilarProduct {
+  product_id: number;
+  name: string;
+  image_url: string | null;
+  risk_score: HazardSeverity | null; // risk level 1–3, null = unknown
+}
+
 // ─── Catalog search (EXPO_PUBLIC_SEARCH_API_URL) ───────────────────────────────
 
 export interface CatalogSearchRequest {
@@ -372,6 +381,15 @@ export type CorrectionType = 'brand' | 'product_name' | 'ingredients';
 
 export interface CreateReportResponse {
   report_id: number;
+}
+
+// POST corrections/image_upload — server-side multipart upload to GCS.
+// The old GET corrections/image_upload_url (signed-URL) flow is gone; the client
+// now POSTs the raw file and gets the hosted URL back.
+export interface CorrectionImageUploadResponse {
+  public_url: string;
+  file_path: string;
+  content_type: string;
 }
 
 export interface CorrectionPoints {

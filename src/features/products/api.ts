@@ -21,6 +21,7 @@ import type {
   Review,
   ReviewsResponse,
   SearchHistoryItem,
+  SimilarProduct,
   TopPicksResponse,
   TopRatedProduct,
   UpsertReviewPayload,
@@ -34,6 +35,7 @@ export const productsApi = {
   topRated: (limit = 10, offset = 0) =>
     api.get<TopRatedProduct[]>(`products/top_rated?limit=${limit}&offset=${offset}`),
   detail: (id: number) => api.get<ProductDetail>(`products/${id}`),
+  similar: (id: number) => api.get<SimilarProduct[]>(`products/${id}/similar`),
   hazardCategory: (productId: number, category: HazardCategoryKey) =>
     api.get<HazardCategoryDetail>(`products/${productId}/hazard_categories/${category}`),
   search: (body: CatalogSearchRequest) =>

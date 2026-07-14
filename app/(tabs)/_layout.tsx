@@ -92,8 +92,6 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen name="profile" options={{ href: null }} />
-      {/* Shared detail stack — kept in the tab navigator so the bar stays visible. */}
-      <Tabs.Screen name="(details)" options={{ href: null }} />
     </Tabs>
   );
 }

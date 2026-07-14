@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Image, Pressable, ScrollView, View } from 'react-native';
+import { ActivityIndicator, Image, Pressable, ScrollView, Text, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -10,7 +10,8 @@ import { GLASS } from '@/theme/glass';
 import { ApiError } from '@/api/client';
 import { storage } from '@/lib/storage/secure';
 import { BarcodeCaptureView } from '@/components/report/BarcodeCaptureView';
-import { uploadCorrectionImage } from '@/features/corrections/uploadImage';
+import { MAX_CORRECTION_IMAGES, uploadCorrectionImage } from '@/features/corrections/uploadImage';
+import { useProduct } from '@/features/products/useProduct';
 import {
   useCreateReport,
   useFinalizeReport,
@@ -41,11 +42,27 @@ const glassCard = {
   borderRadius: 20,
 };
 
+// Intro reward rows — mirrors AppIntro's risk-category card layout (icon + label
+// left, value right). Icons match the TYPE_OPTIONS shown on the next step.
+const REWARD_ROWS: {
+  icon: React.ComponentProps<typeof Ionicons>['name'];
+  label: string;
+  pts: string;
+}[] = [
+  { icon: 'pricetag-outline', label: 'Fix the brand name', pts: '+2 pts' },
+  { icon: 'text-outline', label: 'Fix the product name', pts: '+2 pts' },
+  { icon: 'flask-outline', label: 'Ingredients with photos', pts: 'up to 20' },
+];
+
 export default function ReportWrongDataScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const productId = Number(id);
   const insets = useSafeAreaInsets();
   const { toastConfig, showToast } = useToast();
+
+  // Cached from the product screen — shows the user which product they're fixing.
+  const { data: product } = useProduct(productId);
+  const heroImageUrl = product ? product.image_url ?? product.images[0] ?? null : null;
 
   const createReport = useCreateReport();
   const submitBrand = useSubmitBrand();
@@ -125,14 +142,18 @@ export default function ReportWrongDataScreen() {
   }
 
   async function addLabelPhoto() {
+    if (labelUrls.length >= MAX_CORRECTION_IMAGES) {
+      showToast(`You can add up to ${MAX_CORRECTION_IMAGES} label photos.`);
+      return;
+    }
     const asset = await pickCamera();
     if (!asset) return;
     setUploading(true);
     try {
-      const url = await uploadCorrectionImage(asset.uri);
+      const url = await uploadCorrectionImage(asset);
       setLabelUrls((u) => [...u, url]);
-    } catch {
-      showToast('Failed to upload image. Please try again.');
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Failed to upload image. Please try again.');
     } finally {
       setUploading(false);
     }
@@ -143,9 +164,9 @@ export default function ReportWrongDataScreen() {
     if (!asset) return;
     setUploading(true);
     try {
-      setProductUrl(await uploadCorrectionImage(asset.uri));
-    } catch {
-      showToast('Failed to upload image. Please try again.');
+      setProductUrl(await uploadCorrectionImage(asset));
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Failed to upload image. Please try again.');
     } finally {
       setUploading(false);
     }
@@ -277,24 +298,82 @@ export default function ReportWrongDataScreen() {
         </View>
       ) : (
         <>
-          <ScrollView contentContainerStyle={{ padding: 20, gap: 16, paddingBottom: 24 }} showsVerticalScrollIndicator={false}>
+          <ScrollView
+            contentContainerStyle={
+              step === 'intro'
+                ? { padding: 20, paddingBottom: 24, gap: 16, flexGrow: 1, justifyContent: 'center' }
+                : { padding: 20, gap: 16, paddingBottom: 24 }
+            }
+            showsVerticalScrollIndicator={false}
+          >
             {step === 'intro' && (
-              <View className="gap-4">
-                <AppText variant="heading" className="text-white">Help fix this product</AppText>
-                <AppText variant="body" className="text-white/75 leading-relaxed">
-                  Spotted something wrong? Report it and earn points. Your report goes to our moderators — it won't change the product until it's verified.
-                </AppText>
-                <View className="p-4 gap-2" style={glassCard}>
-                  <AppText variant="caption" className="text-white/80">• Correct the brand or product name (2 pts each)</AppText>
-                  <AppText variant="caption" className="text-white/80">• Report wrong ingredients with photos (up to 20 pts)</AppText>
-                  <AppText variant="caption" className="text-white/80">• Pending points are credited once a moderator verifies your report</AppText>
-                </View>
-                <Pressable onPress={() => setDontShowAgain((v) => !v)} className="flex-row items-center gap-3 active:opacity-70">
-                  <View className="w-6 h-6 rounded-md items-center justify-center" style={{ backgroundColor: dontShowAgain ? '#7c3aed' : 'transparent', borderWidth: 1, borderColor: GLASS.cardBorder }}>
-                    {dontShowAgain && <Ionicons name="checkmark" size={16} color="#ffffff" />}
+              <View className="gap-7">
+                {/* Hero — frosted badge + eyebrow + wordmark, AppIntro style */}
+                <View className="items-center gap-4">
+                  <View
+                    className="w-20 h-20 rounded-3xl items-center justify-center"
+                    style={{ backgroundColor: GLASS.cardBgStrong, borderWidth: 1, borderColor: GLASS.cardBorder }}
+                  >
+                    <Ionicons name="construct" size={36} color="#ffffff" />
                   </View>
-                  <AppText variant="body" className="text-white/85">Don't show this again</AppText>
-                </Pressable>
+                  <View className="items-center gap-2">
+                    <Text style={{ fontSize: 11, letterSpacing: 2.5, color: 'rgba(255,255,255,0.5)', fontWeight: '700' }}>
+                      HELP US STAY ACCURATE
+                    </Text>
+                    <Text style={{ fontSize: 30, lineHeight: 34, fontWeight: '900', color: '#ffffff', textAlign: 'center' }}>
+                      Help fix this product
+                    </Text>
+                    <AppText variant="body" className="text-white/70 text-center leading-relaxed">
+                      Spotted something wrong? Report it and earn points — your report goes to our moderators and won't change the product until it's verified.
+                    </AppText>
+                  </View>
+                </View>
+
+                {/* Product being fixed */}
+                {product && (
+                  <View
+                    className="flex-row items-center gap-3 rounded-2xl p-2.5 pr-4"
+                    style={{ backgroundColor: GLASS.cardBg, borderWidth: 1, borderColor: GLASS.cardBorder }}
+                  >
+                    <View className="rounded-xl overflow-hidden items-center justify-center" style={{ width: 44, height: 44, backgroundColor: 'rgba(255,255,255,0.06)' }}>
+                      {heroImageUrl ? (
+                        <Image source={{ uri: heroImageUrl }} style={{ width: 44, height: 44 }} resizeMode="contain" />
+                      ) : (
+                        <Ionicons name="cube-outline" size={20} color="rgba(255,255,255,0.5)" />
+                      )}
+                    </View>
+                    <View className="flex-1">
+                      {product.brand_name ? (
+                        <Text style={{ fontSize: 10, letterSpacing: 1.2, color: 'rgba(255,255,255,0.5)', fontWeight: '700', textTransform: 'uppercase' }} numberOfLines={1}>
+                          {product.brand_name}
+                        </Text>
+                      ) : null}
+                      <AppText variant="label" className="text-white" numberOfLines={2}>{product.name}</AppText>
+                    </View>
+                  </View>
+                )}
+
+                {/* Rewards card — mirrors the splash's risk-category card */}
+                <View className="rounded-3xl p-5 gap-3.5" style={{ backgroundColor: GLASS.cardBg, borderWidth: 1, borderColor: GLASS.cardBorder }}>
+                  <Text style={{ fontSize: 11, letterSpacing: 1.2, color: 'rgba(255,255,255,0.5)', fontWeight: '700', textTransform: 'uppercase' }}>
+                    Earn points for
+                  </Text>
+                  {REWARD_ROWS.map((r) => (
+                    <View key={r.label} className="flex-row items-center justify-between">
+                      <View className="flex-row items-center gap-2.5">
+                        <Ionicons name={r.icon} size={17} color="#c4b5fd" />
+                        <AppText variant="body" className="text-white/85">{r.label}</AppText>
+                      </View>
+                      <Text style={{ color: '#ffffff', fontWeight: '800', fontSize: 15 }}>{r.pts}</Text>
+                    </View>
+                  ))}
+                  <View className="flex-row items-center gap-2 pt-2" style={{ borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.10)' }}>
+                    <Ionicons name="shield-checkmark" size={13} color="rgba(255,255,255,0.55)" />
+                    <AppText variant="caption" className="text-white/45 flex-1">
+                      Pending points are credited once a moderator verifies your report.
+                    </AppText>
+                  </View>
+                </View>
               </View>
             )}
 
@@ -347,7 +426,9 @@ export default function ReportWrongDataScreen() {
 
                 {/* Label photos (mandatory) */}
                 <View className="gap-2">
-                  <AppText variant="label" className="text-white">Ingredient label photos *</AppText>
+                  <AppText variant="label" className="text-white">
+                    Ingredient label photos * {labelUrls.length > 0 ? `(${labelUrls.length}/${MAX_CORRECTION_IMAGES})` : `(up to ${MAX_CORRECTION_IMAGES})`}
+                  </AppText>
                   <View className="flex-row flex-wrap gap-2">
                     {labelUrls.map((url, i) => (
                       <View key={url} className="rounded-xl overflow-hidden" style={{ width: 84, height: 84 }}>
@@ -357,9 +438,11 @@ export default function ReportWrongDataScreen() {
                         </Pressable>
                       </View>
                     ))}
-                    <Pressable onPress={addLabelPhoto} disabled={uploading} className="items-center justify-center rounded-xl" style={{ width: 84, height: 84, backgroundColor: GLASS.cardBg, borderWidth: 1, borderColor: GLASS.cardBorder }}>
-                      {uploading ? <ActivityIndicator color="#ffffff" /> : <Ionicons name="camera-outline" size={24} color="#ffffff" />}
-                    </Pressable>
+                    {labelUrls.length < MAX_CORRECTION_IMAGES && (
+                      <Pressable onPress={addLabelPhoto} disabled={uploading} className="items-center justify-center rounded-xl" style={{ width: 84, height: 84, backgroundColor: GLASS.cardBg, borderWidth: 1, borderColor: GLASS.cardBorder }}>
+                        {uploading ? <ActivityIndicator color="#ffffff" /> : <Ionicons name="camera-outline" size={24} color="#ffffff" />}
+                      </Pressable>
+                    )}
                   </View>
                 </View>
 
@@ -418,6 +501,14 @@ export default function ReportWrongDataScreen() {
 
           {/* Footer */}
           <View style={{ paddingHorizontal: 20, paddingBottom: insets.bottom + 12, gap: 10 }}>
+            {step === 'intro' && (
+              <Pressable onPress={() => setDontShowAgain((v) => !v)} className="flex-row items-center gap-2 self-start active:opacity-70">
+                <View className="w-5 h-5 rounded items-center justify-center" style={{ backgroundColor: dontShowAgain ? '#7c3aed' : 'transparent', borderWidth: 1, borderColor: GLASS.cardBorder }}>
+                  {dontShowAgain && <Ionicons name="checkmark" size={13} color="#ffffff" />}
+                </View>
+                <AppText variant="caption" className="text-white/55">Don't show this again</AppText>
+              </Pressable>
+            )}
             {step === 'bonus' && (
               <Pressable onPress={goNext} className="items-center py-2 active:opacity-70">
                 <AppText className="text-white/70">Skip this step</AppText>

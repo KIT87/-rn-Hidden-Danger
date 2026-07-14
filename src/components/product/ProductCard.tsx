@@ -5,8 +5,10 @@ import { GLASS } from '@/theme/glass';
 import { RiskScore } from './RiskScore';
 import type { ProductSummary } from '@/features/products/types';
 
-// Minimal shape both ProductSummary and TopRatedProduct satisfy.
-type CardProduct = Pick<ProductSummary, 'product_id' | 'name' | 'brand_name' | 'risk_score' | 'image_url'> & {
+// Minimal shape ProductSummary, TopRatedProduct and SimilarProduct all satisfy.
+// brand_name is optional — the similar-products endpoint omits it.
+type CardProduct = Pick<ProductSummary, 'product_id' | 'name' | 'risk_score' | 'image_url'> & {
+  brand_name?: string;
   images?: string[];
 };
 
@@ -60,9 +62,11 @@ export function ProductCard({ product, onPress, tone = 'light', width = 168, rat
         <AppText variant="label" numberOfLines={2} className={glass ? 'text-white' : ''}>
           {product.name}
         </AppText>
-        <AppText variant="caption" numberOfLines={1} className={glass ? 'text-white/60' : 'text-gray-400'}>
-          {product.brand_name}
-        </AppText>
+        {product.brand_name ? (
+          <AppText variant="caption" numberOfLines={1} className={glass ? 'text-white/60' : 'text-gray-400'}>
+            {product.brand_name}
+          </AppText>
+        ) : null}
         <View className="mt-0.5 flex-row items-center justify-between">
           <RiskScore riskScore={product.risk_score} size="sm" />
           {rating && (

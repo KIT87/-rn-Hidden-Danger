@@ -19,6 +19,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { AppModal, AppText, AppToast, ScreenGradient, useToast } from '@/components/ui';
 import { RiskScore } from '@/components/product/RiskScore';
+import { SimilarProducts } from '@/components/product/SimilarProducts';
 import { StarRating } from '@/components/product/StarRating';
 import { ReviewCard } from '@/components/product/ReviewCard';
 import { ReviewSheet } from '@/components/product/ReviewSheet';
@@ -76,6 +77,22 @@ const HAZARD_COLORS: Record<string, string> = {
 function hazardColor(level?: string | null) {
   if (!level || typeof level !== 'string') return HAZARD_COLORS.UNKNOWN;
   return HAZARD_COLORS[level.toUpperCase()] ?? HAZARD_COLORS.UNKNOWN;
+}
+
+// Solid, opaque badge fills (matching the hazard cards) so the level reads
+// clearly on the purple gradient — a faint translucent tint washed "High" out.
+const LEVEL_BADGE: Record<string, { solid: string; onSolid: string }> = {
+  HIGH:     { solid: '#ef4444', onSolid: '#ffffff' },
+  CRITICAL: { solid: '#dc2626', onSolid: '#ffffff' },
+  MODERATE: { solid: '#f59e0b', onSolid: '#3a2900' },
+  LOW:      { solid: '#22c55e', onSolid: '#06230f' },
+  SAFE:     { solid: '#22c55e', onSolid: '#06230f' },
+  UNKNOWN:  { solid: '#cbd5e1', onSolid: '#1e293b' },
+};
+
+function levelBadge(level?: string | null) {
+  if (!level || typeof level !== 'string') return LEVEL_BADGE.UNKNOWN;
+  return LEVEL_BADGE[level.toUpperCase()] ?? LEVEL_BADGE.UNKNOWN;
 }
 
 const LEGEND_ITEMS: { label: string; color: string }[] = [
@@ -307,6 +324,7 @@ function HazardPublicationsModal({ productId, category, onClose }: {
 
 function IngredientRow({ ingredient }: { ingredient: Ingredient }) {
   const color = hazardColor(ingredient.hazard_level);
+  const badge = levelBadge(ingredient.hazard_level);
   const displayLabel =
     ingredient.hazard_level === 'UNKNOWN'
       ? null
@@ -319,8 +337,10 @@ function IngredientRow({ ingredient }: { ingredient: Ingredient }) {
         {ingredient.name.toLowerCase()}
       </AppText>
       {displayLabel ? (
-        <View className="rounded-full px-2.5 py-0.5" style={{ backgroundColor: color + '2e' }}>
-          <AppText variant="caption" style={{ color, fontWeight: '700' }}>{displayLabel}</AppText>
+        <View className="rounded-full px-2.5 py-0.5" style={{ backgroundColor: badge.solid }}>
+          <AppText variant="caption" style={{ color: badge.onSolid, fontWeight: '800', letterSpacing: 0.3 }}>
+            {displayLabel}
+          </AppText>
         </View>
       ) : null}
     </View>
@@ -662,9 +682,9 @@ export default function ProductDetailScreen() {
           {/* Content cards */}
           <View className="px-4 pt-4 pb-8 gap-3">
 
-            {/* Info chips */}
-            {(product.volume && product.volume_units) || product.has_high_hazard ? (
-              <View className="flex-row items-center gap-2 flex-wrap">
+            {/* Info chips + report link */}
+            <View className="flex-row items-center gap-2">
+              <View className="flex-row items-center gap-2 flex-wrap flex-1">
                 {product.volume && product.volume_units ? (
                   <View className="rounded-full px-3 py-1.5" style={{ backgroundColor: GLASS.cardBg, borderWidth: 1, borderColor: GLASS.cardBorder }}>
                     <AppText variant="caption" className="text-white/80">{product.volume} {product.volume_units}</AppText>
@@ -677,7 +697,17 @@ export default function ProductDetailScreen() {
                   </View>
                 ) : null}
               </View>
-            ) : null}
+
+              {/* Report wrong data */}
+              <Pressable
+                onPress={() => router.push(`/report/${productId}` as never)}
+                className="flex-row items-center gap-1.5 active:opacity-70"
+                hitSlop={8}
+              >
+                <Ionicons name="flag-outline" size={13} color="rgba(255,255,255,0.55)" />
+                <AppText variant="caption" className="text-white/55">Spot a mistake?</AppText>
+              </Pressable>
+            </View>
 
             {/* Risk level card */}
             <View className="rounded-3xl p-5 gap-4" style={glassCard}>
@@ -724,15 +754,8 @@ export default function ProductDetailScreen() {
               </CollapsibleCard>
             ) : null}
 
-            {/* Report wrong data */}
-            <Pressable
-              onPress={() => router.push(`/report/${productId}` as never)}
-              className="flex-row items-center justify-center gap-2 rounded-2xl py-3.5 active:opacity-80"
-              style={{ backgroundColor: GLASS.cardBg, borderWidth: 1, borderColor: GLASS.cardBorder }}
-            >
-              <Ionicons name="flag-outline" size={16} color="#ffffff" />
-              <AppText variant="label" className="text-white font-semibold">Report wrong data</AppText>
-            </Pressable>
+            {/* Similar products (safer alternatives) */}
+            <SimilarProducts productId={productId} />
 
             {/* Reviews */}
             <View className="rounded-3xl p-5 gap-4" style={glassCard}>
