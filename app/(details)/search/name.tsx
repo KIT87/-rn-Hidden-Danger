@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Dimensions, Pressable, ScrollView, TextInput, View } from 'react-native';
+import { ActivityIndicator, Dimensions, Keyboard, Pressable, ScrollView, TextInput, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useMutation } from '@tanstack/react-query';
 import { AppText, GlassHeader, ScreenGradient } from '@/components/ui';
-import { ProductCard } from '@/components/product';
+import { AddProductButton, ProductCard } from '@/components/product';
 import { GLASS } from '@/theme/glass';
 import { productsApi } from '@/features/products/api';
 import { useRecordActivity } from '@/features/gamification/useActivity';
@@ -45,6 +45,7 @@ export default function NameSearchScreen() {
 
   function handleSearch() {
     if (!query.trim()) return;
+    Keyboard.dismiss();
     const trimmed = query.trim();
     setSearchedQuery(trimmed);
     setResults(null);
@@ -131,11 +132,14 @@ export default function NameSearchScreen() {
         {searched && !isPending && (
           <View className="gap-3">
             {results === null || results.length === 0 ? (
-              <View className="items-center py-10 gap-3">
+              <View className="items-center py-10 gap-4">
                 <Ionicons name="search-circle-outline" size={48} color="rgba(255,255,255,0.4)" />
                 <AppText variant="body" className="text-white/60 text-center">
                   No products found for "{searchedQuery}".
                 </AppText>
+                <View className="w-full">
+                  <AddProductButton />
+                </View>
               </View>
             ) : (
               <>

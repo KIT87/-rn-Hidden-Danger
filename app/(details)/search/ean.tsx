@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Dimensions, Pressable, ScrollView, TextInput, View } from 'react-native';
+import { ActivityIndicator, Dimensions, Keyboard, Pressable, ScrollView, TextInput, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useMutation } from '@tanstack/react-query';
 import { AppText, GlassHeader, ScreenGradient } from '@/components/ui';
-import { ProductCard } from '@/components/product';
+import { AddProductButton, ProductCard } from '@/components/product';
 import { GLASS } from '@/theme/glass';
 import { productsApi } from '@/features/products/api';
 import { useRecordActivity } from '@/features/gamification/useActivity';
@@ -71,6 +71,7 @@ export default function EanSearchScreen() {
 
   function handleSearch() {
     if (!ean.trim()) return;
+    Keyboard.dismiss();
     const trimmed = ean.trim();
     setSearchedEan(trimmed);
     setResults([]);
@@ -186,6 +187,9 @@ export default function EanSearchScreen() {
                       {searchedEan}
                     </AppText>
                   </View>
+                </View>
+                <View className="w-full">
+                  <AddProductButton barcode={searchedEan} />
                 </View>
               </View>
             ) : (

@@ -405,3 +405,17 @@ export interface CorrectionSubmitResponse {
   points_pending_total: number;
   points_total: number;
 }
+
+// ─── Product submissions (submit new product) ───────────────────────────────
+// A linear wizard for products not yet in the catalog. Per-step endpoints return
+// the same { points_awarded, points_pending } shape as corrections; the barcode
+// step adds a catalog-collision hint. Finalize reuses CorrectionSubmitResponse.
+export interface CreateSubmissionResponse {
+  submission_id: number;
+}
+
+// Barcode step: existing_product_id is set (and points are 0) when the barcode
+// already maps to a catalog product, so the client can offer to open it instead.
+export interface BarcodeSubmissionResponse extends CorrectionPoints {
+  existing_product_id: number | null;
+}

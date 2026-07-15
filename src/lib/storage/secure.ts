@@ -6,6 +6,7 @@ const AUTH_EXPIRES_KEY = 'auth_expires_at';
 const AUTH_NICKNAME_KEY = 'auth_nickname';
 const LAST_APP_OPEN_KEY = 'last_app_open_date';
 const HIDE_REPORT_INTRO_KEY = 'hide_report_intro';
+const HIDE_SUBMIT_INTRO_KEY = 'hide_submit_intro';
 
 const webStore = {
   getItemAsync: (key: string) => Promise.resolve(localStorage.getItem(key)),
@@ -37,11 +38,17 @@ export const storage = {
   setHideReportIntro: (hide: boolean) =>
     store.setItemAsync(HIDE_REPORT_INTRO_KEY, hide ? 'true' : 'false'),
 
+  // Whether the user checked "don't show again" on the submit-new-product intro.
+  getHideSubmitIntro: () => store.getItemAsync(HIDE_SUBMIT_INTRO_KEY),
+  setHideSubmitIntro: (hide: boolean) =>
+    store.setItemAsync(HIDE_SUBMIT_INTRO_KEY, hide ? 'true' : 'false'),
+
   clear: async () => {
     await store.deleteItemAsync(AUTH_TOKEN_KEY);
     await store.deleteItemAsync(AUTH_EXPIRES_KEY);
     await store.deleteItemAsync(AUTH_NICKNAME_KEY);
     await store.deleteItemAsync(LAST_APP_OPEN_KEY);
     await store.deleteItemAsync(HIDE_REPORT_INTRO_KEY);
+    await store.deleteItemAsync(HIDE_SUBMIT_INTRO_KEY);
   },
 };

@@ -5,6 +5,7 @@ import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppText, GlassHeader, ScreenGradient } from '@/components/ui';
+import { AddProductButton } from '@/components/product';
 import { GLASS } from '@/theme/glass';
 import { BarcodeScanner } from '@/components/scan/BarcodeScanner';
 import { productsApi } from '@/features/products/api';
@@ -144,6 +145,7 @@ export default function ScanScreen() {
           <View className="w-full gap-3">
             <PrimaryButton label="Try Again" icon="scan-outline" onPress={() => { setNotFoundCode(null); setCameraActive(true); }} />
             <GlassButton label="Enter Code Manually" icon="keypad-outline" onPress={() => { setNotFoundCode(null); router.push('/search/ean' as never); }} />
+            <AddProductButton barcode={notFoundCode} />
           </View>
         </View>
       </View>
