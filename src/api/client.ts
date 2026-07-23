@@ -1,10 +1,11 @@
 import { storage } from '@/lib/storage/secure';
 import { decryptApiResponse, DecryptionError } from '@/lib/crypto';
+import { ENV } from '@/config/env';
 
-const BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:8080/api/v1';
-const SEARCH_BASE_URL = process.env.EXPO_PUBLIC_SEARCH_API_URL ?? 'https://ai-api.hiddendanger.ai/v1';
-const SEARCH_PATH = process.env.EXPO_PUBLIC_SEARCH_API_PATH ?? 'catalog/search';
-const SEARCH_API_TOKEN = process.env.EXPO_PUBLIC_SEARCH_API_TOKEN ?? '';
+const BASE_URL = ENV.apiUrl;
+const SEARCH_BASE_URL = ENV.searchApiUrl;
+const SEARCH_PATH = ENV.searchApiPath;
+const SEARCH_API_TOKEN = ENV.searchApiToken;
 
 let unauthorizedHandler: (() => void) | null = null;
 let handlingUnauthorized = false;
